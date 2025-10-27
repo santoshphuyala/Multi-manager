@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="description" content="Multi-Module Manager - Medicine, Subscriptions, Expenses, Travel, Insurance, Bills, Vehicles, Pets & Custom Tracking">
+    <title>Multi Manager</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+    <!-- PIN Lock Screen -->
+    <div id="pinLockScreen" class="pin-lock hidden">
+        <div class="pin-container">
+            <h2>🔒 Enter PIN</h2>
+            <input type="password" id="pinInput" maxlength="4" placeholder="Enter 4-digit PIN" pattern="[0-9]*" inputmode="numeric">
+            <button onclick="verifyPin()" class="btn btn-primary">Unlock</button>
+            <p class="error-msg" id="pinError"></p>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div id="mainApp" class="hidden">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+                <h1 class="app-title">Multi Manager</h1>
+                <button class="settings-btn" onclick="showSettings()">⚙️</button>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h2>Modules</h2>
+                <button class="close-btn" onclick="toggleSidebar()">×</button>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" onclick="showModule('dashboard')" class="nav-item active">
+                    <span class="nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" onclick="showModule('medicine')" class="nav-item">
+                    <span class="nav-icon">💊</span>
+                    <span>Medicine Tracker</span>
+                </a>
+                <a href="#" onclick="showModule('subscription')" class="nav-item">
+                    <span class="nav-icon">📱</span>
+                    <span>Subscriptions</span>
+                </a>
+                <a href="#" onclick="showModule('expense')" class="nav-item">
+                    <span class="nav-icon">💰</span>
+                    <span>Expense Splitter</span>
+                </a>
+                <a href="#" onclick="showModule('travel')" class="nav-item">
+                    <span class="nav-icon">✈️</span>
+                    <span>Travel Manager</span>
+                </a>
+                <a href="#" onclick="showModule('insurance')" class="nav-item">
+                    <span class="nav-icon">🛡️</span>
+                    <span>Insurance</span>
+                </a>
+                <a href="#" onclick="showModule('bill')" class="nav-item">
+                    <span class="nav-icon">📄</span>
+                    <span>Bill Reminders</span>
+                </a>
+                <a href="#" onclick="showModule('vehicle')" class="nav-item">
+                    <span class="nav-icon">🚗</span>
+                    <span>Vehicle Manager</span>
+                </a>
+                <a href="#" onclick="showModule('pet')" class="nav-item">
+                    <span class="nav-icon">🐾</span>
+                    <span>Pet Manager</span>
+                </a>
+                <a href="#" onclick="showModule('custom')" class="nav-item">
+                    <span class="nav-icon">⚡</span>
+                    <span>Custom Tracker</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <p>Developer: Santosh</p>
+                <p><a href="mailto:xyz@gmail.com">xyz@gmail.com</a></p>
+            </div>
+        </aside>
+
+        <!-- Overlay -->
+        <div id="overlay" class="overlay" onclick="toggleSidebar()"></div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Module -->
+            <section id="dashboardModule" class="module active">
+                <h2>📊 Dashboard</h2>
+                <div class="dashboard-grid">
+                    <div class="stat-card" onclick="showModule('medicine')">
+                        <div class="stat-icon">💊</div>
+                        <div class="stat-info">
+                            <h3 id="medicineCount">0</h3>
+                            <p>Medicines</p>
+                        </div>
+                    </div>
+                    <div class="stat-card" onclick="showModule('subscription')">
+                        <div class="stat-icon">📱</div>
+                        <div class="stat-info">
+                            <h3 id="subscriptionCount">0</h3>
+                            <p>Subscriptions</p>
+                        </div>
+                    </div>
+                    <div class="stat-card" onclick="showModule('expense')">
+                        <div class="stat-icon">💰</div>
+                        <div class="stat-info">
+                            <h3 id="expenseCount">0</h3>
+                            <p>Expenses</p>
+                        </div>
+                    </div>
+                    <div class="stat-card" onclick="showModule('travel')">
+                        <div class="stat-icon">✈️</div>
+                        <div class="stat-info">
+                            <h3 id="travelCount">0</h3>
+                            <p>Trips</p>
+                        </div>
+                    </div>
+                    <div class="stat-card" onclick="showModule('insurance')">
+                        <div class="stat-icon">🛡️</div>
+                        <div class="stat-info">
+                            <h3 id="insuranceCount">0</h3>
+                            <p>Policies</p>
+                        </div>
+                    </div>
+                    <div class="stat-card" onclick="showModule('bill')">
+                        <div class="stat-icon">📄</div>
+                        <div class="stat-info">
+                            <h3 id="billCount">0</h3>
+                            <p>Bills</p>
+                        </div>
+                    </div>
+                    <div class="stat-card" onclick="showModule('vehicle')">
+                        <div class="stat-icon">🚗</div>
+                        <div class="stat-info">
+                            <h3 id="vehicleCount">0</h3>
+                            <p>Vehicles</p>
+                        </div>
+                    </div>
+                    <div class="stat-card" onclick="showModule('pet')">
+                        <div class="stat-icon">🐾</div>
+                        <div class="stat-info">
+                            <h3 id="petCount">0</h3>
+                            <p>Pets</p>
+                        </div>
+                    </div>
+                    <div class="stat-card" onclick="showModule('custom')">
+                        <div class="stat-icon">⚡</div>
+                        <div class="stat-info">
+                            <h3 id="customCount">0</h3>
+                            <p>Custom Items</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <h3>Quick Actions</h3>
+                    <div class="action-buttons">
+                        <button onclick="importData()" class="btn btn-secondary">📥 Import Data</button>
+                        <button onclick="exportData()" class="btn btn-secondary">📤 Export Data</button>
+                        <button onclick="backupAllData()" class="btn btn-success">💾 Backup All</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Medicine Module -->
+            <section id="medicineModule" class="module">
+                <div class="module-header">
+                    <h2>💊 Medicine Tracker</h2>
+                    <button onclick="showAddMedicine()" class="btn btn-primary">+ Add Medicine</button>
+                </div>
+                <div id="medicineList" class="item-list"></div>
+            </section>
+
+            <!-- Subscription Module -->
+            <section id="subscriptionModule" class="module">
+                <div class="module-header">
+                    <h2>📱 Subscription Manager</h2>
+                    <button onclick="showAddSubscription()" class="btn btn-primary">+ Add Subscription</button>
+                </div>
+                <div id="subscriptionList" class="item-list"></div>
+            </section>
+
+            <!-- Expense Module -->
+            <section id="expenseModule" class="module">
+                <div class="module-header">
+                    <h2>💰 Expense Splitter</h2>
+                    <button onclick="showAddExpense()" class="btn btn-primary">+ Add Expense</button>
+                </div>
+                <div id="expenseList" class="item-list"></div>
+            </section>
+
+            <!-- Travel Module -->
+            <section id="travelModule" class="module">
+                <div class="module-header">
+                    <h2>✈️ Travel Manager</h2>
+                    <button onclick="showAddTravel()" class="btn btn-primary">+ Add Trip</button>
+                </div>
+                <div id="travelList" class="item-list"></div>
+            </section>
+
+            <!-- Insurance Module -->
+            <section id="insuranceModule" class="module">
+                <div class="module-header">
+                    <h2>🛡️ Insurance Manager</h2>
+                    <button onclick="showAddInsurance()" class="btn btn-primary">+ Add Policy</button>
+                </div>
+                <div id="insuranceList" class="item-list"></div>
+            </section>
+
+            <!-- Bill Reminder Module -->
+            <section id="billModule" class="module">
+                <div class="module-header">
+                    <h2>📄 Bill Reminder & Payment Tracker</h2>
+                    <button onclick="showAddBill()" class="btn btn-primary">+ Add Bill</button>
+                </div>
+                <div class="bill-summary" id="billSummary"></div>
+                <div id="billList" class="item-list"></div>
+            </section>
+
+            <!-- Vehicle Manager Module -->
+            <section id="vehicleModule" class="module">
+                <div class="module-header">
+                    <h2>🚗 Vehicle Manager</h2>
+                    <button onclick="showAddVehicle()" class="btn btn-primary">+ Add Vehicle</button>
+                </div>
+                <div id="vehicleList" class="item-list"></div>
+            </section>
+
+            <!-- Pet Manager Module -->
+            <section id="petModule" class="module">
+                <div class="module-header">
+                    <h2>🐾 Pet Manager</h2>
+                    <button onclick="showAddPet()" class="btn btn-primary">+ Add Pet</button>
+                </div>
+                <div id="petList" class="item-list"></div>
+            </section>
+
+            <!-- Custom Tracker Module -->
+            <section id="customModule" class="module">
+                <div class="module-header">
+                    <h2>⚡ Custom Tracker</h2>
+                    <button onclick="showAddCustomCategory()" class="btn btn-primary">+ Create Category</button>
+                </div>
+                <div id="customCategories" class="custom-categories"></div>
+                <div id="customItemList" class="item-list"></div>
+            </section>
+
+            <!-- Settings Module -->
+            <section id="settingsModule" class="module">
+                <h2>⚙️ Settings</h2>
+                <div class="settings-container">
+                    <div class="settings-group">
+                        <h3>Security</h3>
+                        <div class="setting-item">
+                            <label>
+                                <input type="checkbox" id="enablePin" onchange="togglePinProtection()">
+                                Enable PIN Protection
+                            </label>
+                        </div>
+                        <div id="pinSettings" class="hidden">
+                            <input type="password" id="newPin" maxlength="4" placeholder="Enter new 4-digit PIN" pattern="[0-9]*" inputmode="numeric">
+                            <button onclick="setNewPin()" class="btn btn-secondary">Set PIN</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3>Theme</h3>
+                        <div class="setting-item">
+                            <label for="themeSelect">Color Theme:</label>
+                            <select id="themeSelect" onchange="changeTheme()">
+                                <option value="default">Default Blue</option>
+                                <option value="green">Green</option>
+                                <option value="purple">Purple</option>
+                                <option value="orange">Orange</option>
+                                <option value="dark">Dark Mode</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3>Data Management</h3>
+                        <div class="setting-item">
+                            <button onclick="exportAllData()" class="btn btn-primary">📤 Export All Data</button>
+                            <button onclick="document.getElementById('importFile').click()" class="btn btn-secondary">📥 Import Data</button>
+                            <input type="file" id="importFile" accept=".json,.csv" style="display:none" onchange="handleImportFile(event)">
+                        </div>
+                        <div class="setting-item">
+                            <button onclick="clearAllData()" class="btn btn-danger">🗑️ Clear All Data</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3>About</h3>
+                        <p><strong>Developer:</strong> Santosh</p>
+                        <p><strong>Email:</strong> <a href="mailto:xyz@gmail.com">xyz@gmail.com</a></p>
+                        <p><strong>Version:</strong> 1.0.0</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal for Forms -->
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add Item</h3>
+                <button class="close-btn" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Scripts -->
+    <script src="js/db.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/medicine.js"></script>
+    <script src="js/subscription.js"></script>
+    <script src="js/expense.js"></script>
+    <script src="js/travel.js"></script>
+    <script src="js/insurance.js"></script>
+    <script src="js/bill.js"></script>
+    <script src="js/vehicle.js"></script>
+    <script src="js/pet.js"></script>
+    <script src="js/custom.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/app.js"></script>
+    
+    <script>
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('Service Worker registered', reg))
+                .catch(err => console.log('Service Worker registration failed', err));
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+multi-manager-app/
+├── index.html
+├── manifest.json
+├── sw.js
+├── css/
+│   └── styles.css
+├── js/
+│   ├── db.js
+│   ├── utils.js
+│   ├── app.js
+│   ├── medicine.js
+│   ├── subscription.js
+│   ├── expense.js
+│   ├── travel.js
+│   ├── insurance.js
+│   ├── bill.js
+│   ├── vehicle.js
+│   ├── pet.js
+│   ├── custom.js
+│   └── settings.js
+└── icons/
+    ├── icon-192.png
+    └── icon-512.png
