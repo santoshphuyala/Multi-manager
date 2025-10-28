@@ -18,8 +18,12 @@ async function loadExpenses() {
   }
 
   container.innerHTML = groups.map(group => {
-    const totalExpenses = group.expenses?.length || 0;
-    const totalAmount = (group.expenses || []).reduce((sum, exp) => sum + exp.amount, 0);
+    // Ensure arrays exist
+    const participants = group.participants || [];
+    const expenses = group.expenses || [];
+    
+    const totalExpenses = expenses.length;
+    const totalAmount = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
     const dateRange = group.startDate && group.endDate 
       ? `${formatDate(group.startDate)} - ${formatDate(group.endDate)}`
       : 'No dates set';
@@ -30,7 +34,7 @@ async function loadExpenses() {
           <div>
             <h3 class="item-title">${group.name}</h3>
             <p style="color: var(--text-secondary); font-size: 0.875rem; margin: 0.25rem 0;">
-              ${group.participants?.length || 0} participants • ${totalExpenses} expenses
+              ${participants.length} participants • ${totalExpenses} expenses
             </p>
           </div>
           <div class="item-actions">
@@ -42,8 +46,8 @@ async function loadExpenses() {
         </div>
         <div class="item-details">
           <div class="item-detail"><strong>Period:</strong> ${dateRange}</div>
-          <div class="item-detail"><strong>Total Amount:</strong> ${formatCurrency(totalAmount, group.currency)}</div>
-          <div class="item-detail"><strong>Participants:</strong> ${(group.participants || []).join(', ')}</div>
+          <div class="item-detail"><strong>Total Amount:</strong> ${formatCurrency(totalAmount, group.currency || 'NRs')}</div>
+          <div class="item-detail"><strong>Participants:</strong> ${participants.join(', ') || 'None'}</div>
           ${group.description ? `<div class="item-detail"><strong>Description:</strong> ${group.description}</div>` : ''}
           <div class="item-detail">
             <span class="item-badge ${group.settled ? 'badge-active' : 'badge-warning'}">
@@ -166,7 +170,7 @@ async function saveExpenseGroup(event) {
     if (id) {
       group.id = parseInt(id);
       const oldGroup = await db.get('expenseGroups', group.id);
-      group.expenses = oldGroup.expenses || [];
+      group.expenses = oldGroup?.expenses || [];
       await db.update('expenseGroups', group);
       showToast('Group updated successfully!');
     } else {
@@ -185,9 +189,18 @@ async function saveExpenseGroup(event) {
 async function viewGroupDetails(groupId) {
   const group = await db.get('expenseGroups', groupId);
   
+  if (!group) {
+    showToast('Group not found');
+    return;
+  }
+
+  // Ensure arrays exist
+  const participants = group.participants || [];
+  const expenses = group.expenses || [];
+  
   // Group expenses by date
   const expensesByDate = {};
-  (group.expenses || []).forEach(exp => {
+  expenses.forEach(exp => {
     if (!expensesByDate[exp.date]) {
       expensesByDate[exp.date] = [];
     }
@@ -196,33 +209,31 @@ async function viewGroupDetails(groupId) {
 
   const sortedDates = Object.keys(expensesByDate).sort();
 
-  // In viewGroupDetails function, after the group info section, add:
+  let content = `
+    <div class="expense-group-details">
+      <div style="margin-bottom: 1rem;">
+        <h3>${group.name}</h3>
+        <p style="color: var(--text-secondary);">${group.description || ''}</p>
+        <p><strong>Period:</strong> ${formatDate(group.startDate)} - ${formatDate(group.endDate)}</p>
+        <p><strong>Participants:</strong> ${participants.join(', ') || 'None'}</p>
+      </div>
 
-let content = `
-  <div class="expense-group-details">
-    <div style="margin-bottom: 1rem;">
-      <h3>${group.name}</h3>
-      <p style="color: var(--text-secondary);">${group.description || ''}</p>
-      <p><strong>Period:</strong> ${formatDate(group.startDate)} - ${formatDate(group.endDate)}</p>
-      <p><strong>Participants:</strong> ${group.participants.join(', ')}</p>
-    </div>
+      <!-- EXPORT BUTTONS -->
+      <div class="export-buttons" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+        <button onclick="exportExpenseGroup(${groupId}, 'xlsx')" class="btn btn-success" style="flex: 1;">
+          📊 Export Excel Report
+        </button>
+        <button onclick="exportExpenseGroup(${groupId}, 'csv')" class="btn btn-secondary" style="flex: 1;">
+          📄 Export CSV
+        </button>
+        <button onclick="exportExpenseGroup(${groupId}, 'json')" class="btn btn-secondary" style="flex: 1;">
+          📋 Export JSON
+        </button>
+      </div>
 
-    <!-- ADD EXPORT BUTTONS HERE -->
-    <div class="export-buttons" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
-      <button onclick="exportExpenseGroup(${groupId}, 'xlsx')" class="btn btn-success" style="flex: 1;">
-        📊 Export Excel Report
+      <button onclick="addExpenseToGroup(${groupId})" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;">
+        ➕ Add New Expense
       </button>
-      <button onclick="exportExpenseGroup(${groupId}, 'csv')" class="btn btn-secondary" style="flex: 1;">
-        📄 Export CSV
-      </button>
-      <button onclick="exportExpenseGroup(${groupId}, 'json')" class="btn btn-secondary" style="flex: 1;">
-        📋 Export JSON
-      </button>
-    </div>
-
-    <button onclick="addExpenseToGroup(${groupId})" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;">
-      ➕ Add New Expense
-    </button>
 
       <div class="expense-tabs">
         <button class="expense-tab active" onclick="switchExpenseTab(event, 'expenses')">Expenses</button>
@@ -237,13 +248,13 @@ let content = `
   } else {
     sortedDates.forEach(date => {
       const dayExpenses = expensesByDate[date];
-      const dayTotal = dayExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const dayTotal = dayExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
 
       content += `
         <div class="day-expenses">
           <div class="day-header">
             <h4>${formatDate(date)}</h4>
-            <span class="day-total">${formatCurrency(dayTotal, group.currency)}</span>
+            <span class="day-total">${formatCurrency(dayTotal, group.currency || 'NRs')}</span>
           </div>
       `;
 
@@ -252,7 +263,7 @@ let content = `
           <div class="expense-item">
             <div class="expense-item-header">
               <strong>${exp.description}</strong>
-              <span>${formatCurrency(exp.amount, group.currency)}</span>
+              <span>${formatCurrency(exp.amount || 0, group.currency || 'NRs')}</span>
             </div>
             <div class="expense-item-details">
               <small>Paid by: <strong>${exp.paidBy}</strong></small>
@@ -268,7 +279,7 @@ let content = `
       });
 
       // Day settlement
-      const daySettlement = calculateDaySettlement(dayExpenses, group.participants, group.currency);
+      const daySettlement = calculateDaySettlement(dayExpenses, participants, group.currency || 'NRs');
       if (daySettlement.length > 0) {
         content += `
           <div class="day-settlement">
@@ -304,15 +315,15 @@ function calculateDaySettlement(expenses, participants, currency) {
   // Calculate what each person paid and owes
   expenses.forEach(exp => {
     const perPerson = exp.splitType === 'equal' 
-      ? exp.amount / participants.length 
+      ? (exp.amount || 0) / participants.length 
       : 0;
 
     participants.forEach(person => {
       const owes = exp.splitType === 'equal' 
         ? perPerson 
-        : (exp.splits?.[person] || 0);
+        : ((exp.splits && exp.splits[person]) || 0);
       
-      const paid = exp.paidBy === person ? exp.amount : 0;
+      const paid = exp.paidBy === person ? (exp.amount || 0) : 0;
       
       balances[person] += paid - owes;
     });
@@ -357,7 +368,10 @@ function calculateDaySettlement(expenses, participants, currency) {
 
 // Generate overall settlement summary
 function generateSettlementSummary(group) {
-  if (!group.expenses || group.expenses.length === 0) {
+  const expenses = group.expenses || [];
+  const participants = group.participants || [];
+  
+  if (expenses.length === 0) {
     return '<p style="text-align: center; padding: 2rem;">No expenses to settle</p>';
   }
 
@@ -366,24 +380,24 @@ function generateSettlementSummary(group) {
   const totalOwed = {};
 
   // Initialize
-  group.participants.forEach(p => {
+  participants.forEach(p => {
     balances[p] = 0;
     totalPaid[p] = 0;
     totalOwed[p] = 0;
   });
 
   // Calculate balances
-  group.expenses.forEach(exp => {
+  expenses.forEach(exp => {
     const perPerson = exp.splitType === 'equal' 
-      ? exp.amount / group.participants.length 
+      ? (exp.amount || 0) / participants.length 
       : 0;
 
-    group.participants.forEach(person => {
+    participants.forEach(person => {
       const owes = exp.splitType === 'equal' 
         ? perPerson 
-        : (exp.splits?.[person] || 0);
+        : ((exp.splits && exp.splits[person]) || 0);
       
-      const paid = exp.paidBy === person ? exp.amount : 0;
+      const paid = exp.paidBy === person ? (exp.amount || 0) : 0;
       
       totalPaid[person] += paid;
       totalOwed[person] += owes;
@@ -406,16 +420,16 @@ function generateSettlementSummary(group) {
         <tbody>
   `;
 
-  group.participants.forEach(person => {
+  participants.forEach(person => {
     const balance = balances[person];
     const balanceClass = balance > 0.01 ? 'positive' : balance < -0.01 ? 'negative' : 'zero';
     summary += `
       <tr>
         <td><strong>${person}</strong></td>
-        <td>${formatCurrency(totalPaid[person], group.currency)}</td>
-        <td>${formatCurrency(totalOwed[person], group.currency)}</td>
+        <td>${formatCurrency(totalPaid[person], group.currency || 'NRs')}</td>
+        <td>${formatCurrency(totalOwed[person], group.currency || 'NRs')}</td>
         <td class="balance-${balanceClass}">
-          ${balance > 0.01 ? '+' : ''}${formatCurrency(balance, group.currency)}
+          ${balance > 0.01 ? '+' : ''}${formatCurrency(balance, group.currency || 'NRs')}
         </td>
       </tr>
     `;
@@ -429,7 +443,7 @@ function generateSettlementSummary(group) {
       <div class="settlement-instructions">
   `;
 
-  const settlements = calculateDaySettlement(group.expenses, group.participants, group.currency);
+  const settlements = calculateDaySettlement(expenses, participants, group.currency || 'NRs');
   
   if (settlements.length === 0) {
     summary += '<p style="text-align: center;">✓ All settled!</p>';
@@ -458,6 +472,18 @@ async function addExpenseToGroup(groupId) {
   closeModal();
   
   const group = await db.get('expenseGroups', groupId);
+  
+  if (!group) {
+    showToast('Group not found');
+    return;
+  }
+
+  const participants = group.participants || [];
+  
+  if (participants.length === 0) {
+    showToast('No participants in this group. Please edit the group first.');
+    return;
+  }
 
   const form = `
     <form onsubmit="saveExpenseToGroup(event, ${groupId})">
@@ -473,7 +499,7 @@ async function addExpenseToGroup(groupId) {
       <div class="form-group">
         <label for="expPaidBy">Paid By *</label>
         <select id="expPaidBy" required>
-          ${group.participants.map(p => `<option value="${p}">${p}</option>`).join('')}
+          ${participants.map(p => `<option value="${p}">${p}</option>`).join('')}
         </select>
       </div>
       <div class="form-group">
@@ -485,7 +511,7 @@ async function addExpenseToGroup(groupId) {
       </div>
       <div id="customSplitContainer" class="hidden">
         <label>Custom Split Amounts</label>
-        ${group.participants.map(p => `
+        ${participants.map(p => `
           <div class="form-group">
             <label for="split_${p}">${p}</label>
             <input type="number" id="split_${p}" step="0.01" min="0" value="0" class="custom-split-input">
@@ -522,6 +548,13 @@ async function saveExpenseToGroup(event, groupId) {
   event.preventDefault();
 
   const group = await db.get('expenseGroups', groupId);
+  
+  if (!group) {
+    showToast('Group not found');
+    return;
+  }
+
+  const participants = group.participants || [];
   const amount = parseFloat(document.getElementById('expAmount').value);
   const splitType = document.getElementById('expSplitType').value;
 
@@ -529,7 +562,7 @@ async function saveExpenseToGroup(event, groupId) {
   
   if (splitType === 'custom') {
     let totalSplit = 0;
-    group.participants.forEach(p => {
+    participants.forEach(p => {
       const splitAmount = parseFloat(document.getElementById(`split_${p}`).value) || 0;
       splits[p] = splitAmount;
       totalSplit += splitAmount;
@@ -581,18 +614,29 @@ async function saveExpenseToGroup(event, groupId) {
 // ==================== EXPENSE ACTIONS ====================
 async function viewExpenseInGroup(groupId, expenseId) {
   const group = await db.get('expenseGroups', groupId);
-  const expense = group.expenses.find(e => e.id === expenseId);
   
-  if (!expense) return;
+  if (!group) {
+    showToast('Group not found');
+    return;
+  }
+
+  const participants = group.participants || [];
+  const expenses = group.expenses || [];
+  const expense = expenses.find(e => e.id === expenseId);
+  
+  if (!expense) {
+    showToast('Expense not found');
+    return;
+  }
 
   const perPerson = expense.splitType === 'equal' 
-    ? expense.amount / group.participants.length 
+    ? (expense.amount || 0) / participants.length 
     : 0;
 
   let content = `
     <div class="expense-detail-view">
       <h4>${expense.description}</h4>
-      <p><strong>Amount:</strong> ${formatCurrency(expense.amount, group.currency)}</p>
+      <p><strong>Amount:</strong> ${formatCurrency(expense.amount || 0, group.currency || 'NRs')}</p>
       <p><strong>Date:</strong> ${formatDate(expense.date)}</p>
       <p><strong>Paid By:</strong> ${expense.paidBy}</p>
       <p><strong>Split Type:</strong> ${expense.splitType === 'equal' ? 'Equal Split' : 'Custom Split'}</p>
@@ -610,16 +654,16 @@ async function viewExpenseInGroup(groupId, expenseId) {
         <tbody>
   `;
 
-  group.participants.forEach(person => {
+  participants.forEach(person => {
     const share = expense.splitType === 'equal' 
       ? perPerson 
-      : (expense.splits[person] || 0);
+      : ((expense.splits && expense.splits[person]) || 0);
     const isPayer = person === expense.paidBy;
 
     content += `
       <tr>
         <td><strong>${person}</strong></td>
-        <td>${formatCurrency(share, group.currency)}</td>
+        <td>${formatCurrency(share, group.currency || 'NRs')}</td>
         <td>${isPayer ? '<span class="badge-active">Paid</span>' : '<span class="badge-warning">Owes</span>'}</td>
       </tr>
     `;
@@ -641,9 +685,20 @@ async function editExpenseInGroup(groupId, expenseId) {
   closeModal();
   
   const group = await db.get('expenseGroups', groupId);
-  const expense = group.expenses.find(e => e.id === expenseId);
   
-  if (!expense) return;
+  if (!group) {
+    showToast('Group not found');
+    return;
+  }
+
+  const participants = group.participants || [];
+  const expenses = group.expenses || [];
+  const expense = expenses.find(e => e.id === expenseId);
+  
+  if (!expense) {
+    showToast('Expense not found');
+    return;
+  }
 
   const form = `
     <form onsubmit="saveExpenseToGroup(event, ${groupId})">
@@ -654,13 +709,13 @@ async function editExpenseInGroup(groupId, expenseId) {
       </div>
       <div class="form-group">
         <label for="expAmount">Amount *</label>
-        <input type="number" id="expAmount" step="0.01" value="${expense.amount}" required>
+        <input type="number" id="expAmount" step="0.01" value="${expense.amount || 0}" required>
       </div>
       ${createDateInput('expDate', 'Date *', expense.date)}
       <div class="form-group">
         <label for="expPaidBy">Paid By *</label>
         <select id="expPaidBy" required>
-          ${group.participants.map(p => `
+          ${participants.map(p => `
             <option value="${p}" ${expense.paidBy === p ? 'selected' : ''}>${p}</option>
           `).join('')}
         </select>
@@ -674,10 +729,10 @@ async function editExpenseInGroup(groupId, expenseId) {
       </div>
       <div id="customSplitContainer" class="${expense.splitType === 'custom' ? '' : 'hidden'}">
         <label>Custom Split Amounts</label>
-        ${group.participants.map(p => `
+        ${participants.map(p => `
           <div class="form-group">
             <label for="split_${p}">${p}</label>
-            <input type="number" id="split_${p}" step="0.01" value="${expense.splits?.[p] || 0}" class="custom-split-input">
+            <input type="number" id="split_${p}" step="0.01" value="${(expense.splits && expense.splits[p]) || 0}" class="custom-split-input">
           </div>
         `).join('')}
       </div>
@@ -699,7 +754,13 @@ async function deleteExpenseFromGroup(groupId, expenseId) {
   if (!confirmAction('Delete this expense?')) return;
 
   const group = await db.get('expenseGroups', groupId);
-  group.expenses = group.expenses.filter(e => e.id !== expenseId);
+  
+  if (!group) {
+    showToast('Group not found');
+    return;
+  }
+
+  group.expenses = (group.expenses || []).filter(e => e.id !== expenseId);
   
   await db.update('expenseGroups', group);
   showToast('Expense deleted!');
@@ -709,6 +770,13 @@ async function deleteExpenseFromGroup(groupId, expenseId) {
 // ==================== GROUP ACTIONS ====================
 async function editExpenseGroup(id) {
   const group = await db.get('expenseGroups', id);
+  
+  if (!group) {
+    showToast('Group not found');
+    return;
+  }
+
+  const participants = group.participants || [];
 
   const form = `
     <form onsubmit="saveExpenseGroup(event)">
@@ -738,12 +806,17 @@ async function editExpenseGroup(id) {
         <label>Participants *</label>
         <p style="color: var(--text-secondary); font-size: 0.875rem;">Note: Changing participants may affect existing expenses</p>
         <div id="participantsList" class="participant-list">
-          ${group.participants.map(p => `
+          ${participants.length > 0 ? participants.map(p => `
             <div class="participant-item">
               <input type="text" placeholder="Participant Name" class="participant-name" value="${p}" required>
               <button type="button" onclick="removeGroupParticipant(this)" class="btn btn-danger">−</button>
             </div>
-          `).join('')}
+          `).join('') : `
+            <div class="participant-item">
+              <input type="text" placeholder="Participant Name" class="participant-name" required>
+              <button type="button" onclick="removeGroupParticipant(this)" class="btn btn-danger">−</button>
+            </div>
+          `}
         </div>
         <button type="button" onclick="addGroupParticipant()" class="btn btn-secondary">+ Add Participant</button>
       </div>
@@ -767,6 +840,12 @@ async function deleteExpenseGroup(id) {
 
 async function viewGroupSummary(groupId) {
   const group = await db.get('expenseGroups', groupId);
+  
+  if (!group) {
+    showToast('Group not found');
+    return;
+  }
+
   const summary = generateSettlementSummary(group);
   
   openModal(`${group.name} - Settlement Summary`, summary);
@@ -774,6 +853,12 @@ async function viewGroupSummary(groupId) {
 
 async function markGroupAsSettled(groupId) {
   const group = await db.get('expenseGroups', groupId);
+  
+  if (!group) {
+    showToast('Group not found');
+    return;
+  }
+
   group.settled = !group.settled;
   
   await db.update('expenseGroups', group);
@@ -791,6 +876,7 @@ function switchExpenseTab(event, tabName) {
   event.target.classList.add('active');
   document.getElementById(`${tabName}Tab`).classList.add('active');
 }
+
 // ==================== ENHANCED EXPORT FUNCTIONS ====================
 
 async function exportExpenseGroup(groupId, format) {
@@ -800,6 +886,10 @@ async function exportExpenseGroup(groupId, format) {
     showToast('Group not found');
     return;
   }
+
+  // Ensure arrays exist
+  if (!group.participants) group.participants = [];
+  if (!group.expenses) group.expenses = [];
 
   switch(format) {
     case 'json':
@@ -822,6 +912,9 @@ function exportExpenseGroupExcel(group) {
   }
 
   try {
+    const participants = group.participants || [];
+    const expenses = group.expenses || [];
+    
     const wb = XLSX.utils.book_new();
 
     // Sheet 1: Group Summary
@@ -831,9 +924,9 @@ function exportExpenseGroupExcel(group) {
       ['Group Name:', group.name],
       ['Description:', group.description || 'N/A'],
       ['Period:', `${formatDate(group.startDate)} to ${formatDate(group.endDate)}`],
-      ['Currency:', group.currency],
-      ['Participants:', group.participants.join(', ')],
-      ['Total Expenses:', (group.expenses || []).length],
+      ['Currency:', group.currency || 'NRs'],
+      ['Participants:', participants.join(', ')],
+      ['Total Expenses:', expenses.length],
       ['Status:', group.settled ? 'Settled' : 'Pending'],
       ['']
     ];
@@ -848,7 +941,7 @@ function exportExpenseGroupExcel(group) {
 
     // Group by date
     const expensesByDate = {};
-    (group.expenses || []).forEach(exp => {
+    expenses.forEach(exp => {
       if (!expensesByDate[exp.date]) {
         expensesByDate[exp.date] = [];
       }
@@ -860,7 +953,7 @@ function exportExpenseGroupExcel(group) {
 
     sortedDates.forEach(date => {
       const dayExpenses = expensesByDate[date];
-      const dayTotal = dayExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const dayTotal = dayExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
       grandTotal += dayTotal;
 
       // Date header
@@ -871,7 +964,7 @@ function exportExpenseGroupExcel(group) {
         expensesData.push([
           formatDate(exp.date),
           exp.description,
-          exp.amount,
+          exp.amount || 0,
           exp.paidBy,
           exp.splitType === 'equal' ? 'Equal Split' : 'Custom Split',
           exp.notes || ''
@@ -922,18 +1015,18 @@ function exportExpenseGroupExcel(group) {
     sortedDates.forEach(date => {
       const dayExpenses = expensesByDate[date];
       
-      expensesData.push([`=== ${formatDate(date)} ===`, '', '', '', '', '']);
+      splitData.push([`=== ${formatDate(date)} ===`, '', '', '', '', '']);
 
       dayExpenses.forEach(exp => {
         const perPerson = exp.splitType === 'equal' 
-          ? exp.amount / group.participants.length 
+          ? (exp.amount || 0) / Math.max(participants.length, 1)
           : 0;
 
-        group.participants.forEach(person => {
+        participants.forEach(person => {
           const share = exp.splitType === 'equal' 
             ? perPerson 
-            : (exp.splits[person] || 0);
-          const paid = exp.paidBy === person ? exp.amount : 0;
+            : ((exp.splits && exp.splits[person]) || 0);
+          const paid = exp.paidBy === person ? (exp.amount || 0) : 0;
           const balance = paid - share;
 
           splitData.push([
@@ -972,22 +1065,22 @@ function exportExpenseGroupExcel(group) {
     const totalPaid = {};
     const totalOwed = {};
 
-    group.participants.forEach(p => {
+    participants.forEach(p => {
       balances[p] = 0;
       totalPaid[p] = 0;
       totalOwed[p] = 0;
     });
 
-    (group.expenses || []).forEach(exp => {
+    expenses.forEach(exp => {
       const perPerson = exp.splitType === 'equal' 
-        ? exp.amount / group.participants.length 
+        ? (exp.amount || 0) / Math.max(participants.length, 1)
         : 0;
 
-      group.participants.forEach(person => {
+      participants.forEach(person => {
         const owes = exp.splitType === 'equal' 
           ? perPerson 
-          : (exp.splits[person] || 0);
-        const paid = exp.paidBy === person ? exp.amount : 0;
+          : ((exp.splits && exp.splits[person]) || 0);
+        const paid = exp.paidBy === person ? (exp.amount || 0) : 0;
         
         totalPaid[person] += paid;
         totalOwed[person] += owes;
@@ -995,7 +1088,7 @@ function exportExpenseGroupExcel(group) {
       });
     });
 
-    group.participants.forEach(person => {
+    participants.forEach(person => {
       const balance = balances[person];
       const status = balance > 0.01 ? 'Gets Back' : balance < -0.01 ? 'Needs to Pay' : 'Settled';
       
@@ -1012,7 +1105,7 @@ function exportExpenseGroupExcel(group) {
     settlementData.push(['Payment Instructions']);
     settlementData.push(['']);
 
-    const settlements = calculateDaySettlement(group.expenses || [], group.participants, group.currency);
+    const settlements = calculateDaySettlement(expenses, participants, group.currency || 'NRs');
     
     if (settlements.length === 0) {
       settlementData.push(['All payments are settled!']);
@@ -1045,6 +1138,9 @@ function exportExpenseGroupExcel(group) {
 
 // Export as formatted CSV
 function exportExpenseGroupCSV(group) {
+  const participants = group.participants || [];
+  const expenses = group.expenses || [];
+  
   let csv = '';
   
   // Summary section
@@ -1052,9 +1148,9 @@ function exportExpenseGroupCSV(group) {
   csv += `Group Name,${group.name}\n`;
   csv += `Description,${group.description || 'N/A'}\n`;
   csv += `Period,${formatDate(group.startDate)} to ${formatDate(group.endDate)}\n`;
-  csv += `Currency,${group.currency}\n`;
-  csv += `Participants,"${group.participants.join(', ')}"\n`;
-  csv += `Total Expenses,${(group.expenses || []).length}\n`;
+  csv += `Currency,${group.currency || 'NRs'}\n`;
+  csv += `Participants,"${participants.join(', ')}"\n`;
+  csv += `Total Expenses,${expenses.length}\n`;
   csv += `Status,${group.settled ? 'Settled' : 'Pending'}\n\n`;
 
   // Detailed expenses
@@ -1062,7 +1158,7 @@ function exportExpenseGroupCSV(group) {
   csv += `Date,Description,Amount,Paid By,Split Type,Notes\n`;
 
   const expensesByDate = {};
-  (group.expenses || []).forEach(exp => {
+  expenses.forEach(exp => {
     if (!expensesByDate[exp.date]) {
       expensesByDate[exp.date] = [];
     }
@@ -1074,13 +1170,13 @@ function exportExpenseGroupCSV(group) {
 
   sortedDates.forEach(date => {
     const dayExpenses = expensesByDate[date];
-    const dayTotal = dayExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const dayTotal = dayExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
     grandTotal += dayTotal;
 
     csv += `\n=== ${formatDate(date)} ===\n`;
 
     dayExpenses.forEach(exp => {
-      csv += `${formatDate(exp.date)},"${exp.description}",${exp.amount},${exp.paidBy},${exp.splitType === 'equal' ? 'Equal Split' : 'Custom Split'},"${exp.notes || ''}"\n`;
+      csv += `${formatDate(exp.date)},"${exp.description}",${exp.amount || 0},${exp.paidBy},${exp.splitType === 'equal' ? 'Equal Split' : 'Custom Split'},"${exp.notes || ''}"\n`;
     });
 
     csv += `,Day Total,${dayTotal}\n`;
@@ -1096,22 +1192,22 @@ function exportExpenseGroupCSV(group) {
   const totalPaid = {};
   const totalOwed = {};
 
-  group.participants.forEach(p => {
+  participants.forEach(p => {
     balances[p] = 0;
     totalPaid[p] = 0;
     totalOwed[p] = 0;
   });
 
-  (group.expenses || []).forEach(exp => {
+  expenses.forEach(exp => {
     const perPerson = exp.splitType === 'equal' 
-      ? exp.amount / group.participants.length 
+      ? (exp.amount || 0) / Math.max(participants.length, 1)
       : 0;
 
-    group.participants.forEach(person => {
+    participants.forEach(person => {
       const owes = exp.splitType === 'equal' 
         ? perPerson 
-        : (exp.splits[person] || 0);
-      const paid = exp.paidBy === person ? exp.amount : 0;
+        : ((exp.splits && exp.splits[person]) || 0);
+      const paid = exp.paidBy === person ? (exp.amount || 0) : 0;
       
       totalPaid[person] += paid;
       totalOwed[person] += owes;
@@ -1119,7 +1215,7 @@ function exportExpenseGroupCSV(group) {
     });
   });
 
-  group.participants.forEach(person => {
+  participants.forEach(person => {
     const balance = balances[person];
     const status = balance > 0.01 ? 'Gets Back' : balance < -0.01 ? 'Needs to Pay' : 'Settled';
     
@@ -1128,7 +1224,7 @@ function exportExpenseGroupCSV(group) {
 
   csv += `\n\nPayment Instructions\n`;
   
-  const settlements = calculateDaySettlement(group.expenses || [], group.participants, group.currency);
+  const settlements = calculateDaySettlement(expenses, participants, group.currency || 'NRs');
   
   if (settlements.length === 0) {
     csv += `All payments are settled!\n`;
@@ -1146,25 +1242,28 @@ function exportExpenseGroupCSV(group) {
 
 // Export as JSON (formatted)
 function exportExpenseGroupJSON(group) {
+  const participants = group.participants || [];
+  const expenses = group.expenses || [];
+  
   const exportData = {
     groupInfo: {
       name: group.name,
       description: group.description,
-      currency: group.currency,
+      currency: group.currency || 'NRs',
       period: {
         start: group.startDate,
         end: group.endDate
       },
-      participants: group.participants,
+      participants: participants,
       status: group.settled ? 'Settled' : 'Pending'
     },
-    expenses: (group.expenses || []).map(exp => ({
+    expenses: expenses.map(exp => ({
       date: exp.date,
       description: exp.description,
-      amount: exp.amount,
+      amount: exp.amount || 0,
       paidBy: exp.paidBy,
       splitType: exp.splitType,
-      customSplits: exp.splitType === 'custom' ? exp.splits : null,
+      customSplits: exp.splitType === 'custom' ? (exp.splits || {}) : null,
       notes: exp.notes
     })),
     settlement: generateSettlementJSON(group)
@@ -1176,26 +1275,29 @@ function exportExpenseGroupJSON(group) {
 }
 
 function generateSettlementJSON(group) {
+  const participants = group.participants || [];
+  const expenses = group.expenses || [];
+  
   const balances = {};
   const totalPaid = {};
   const totalOwed = {};
 
-  group.participants.forEach(p => {
+  participants.forEach(p => {
     balances[p] = 0;
     totalPaid[p] = 0;
     totalOwed[p] = 0;
   });
 
-  (group.expenses || []).forEach(exp => {
+  expenses.forEach(exp => {
     const perPerson = exp.splitType === 'equal' 
-      ? exp.amount / group.participants.length 
+      ? (exp.amount || 0) / Math.max(participants.length, 1)
       : 0;
 
-    group.participants.forEach(person => {
+    participants.forEach(person => {
       const owes = exp.splitType === 'equal' 
         ? perPerson 
-        : (exp.splits[person] || 0);
-      const paid = exp.paidBy === person ? exp.amount : 0;
+        : ((exp.splits && exp.splits[person]) || 0);
+      const paid = exp.paidBy === person ? (exp.amount || 0) : 0;
       
       totalPaid[person] += paid;
       totalOwed[person] += owes;
@@ -1203,7 +1305,7 @@ function generateSettlementJSON(group) {
     });
   });
 
-  const summary = group.participants.map(person => ({
+  const summary = participants.map(person => ({
     participant: person,
     totalPaid: parseFloat(totalPaid[person].toFixed(2)),
     totalOwed: parseFloat(totalOwed[person].toFixed(2)),
@@ -1211,7 +1313,7 @@ function generateSettlementJSON(group) {
     status: balances[person] > 0.01 ? 'Gets Back' : balances[person] < -0.01 ? 'Needs to Pay' : 'Settled'
   }));
 
-  const settlements = calculateDaySettlement(group.expenses || [], group.participants, group.currency);
+  const settlements = calculateDaySettlement(expenses, participants, group.currency || 'NRs');
 
   return {
     individualBalances: summary,
