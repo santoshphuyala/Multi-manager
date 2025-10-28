@@ -1504,3 +1504,172 @@ function generateSettlementJSON(group) {
     paymentInstructions: settlements
   };
 }
+// ==================== SIMPLIFIED EXPORT SYSTEM FOR EXPENSE GROUPS ====================
+
+// Export single expense group to Excel with all details
+async function exportExpenseGroup(groupId, format) {
+  const group = await db.get('expenseGroups', groupId);
+  
+  if (!group) {
+    showToast('Group not found');
+    return;
+  }
+
+  // Ensure arrays exist
+  if (!group.participants) group.participants = [];
+  if (!group.expenses) group.expenses = [];
+
+  switch(format) {
+    case 'json':
+      exportExpenseGroupJSON(group);
+      break;
+    case 'csv':
+      exportExpenseGroupCSV(group);
+      break;
+    case 'xlsx':
+      exportExpenseGroupExcel(group);
+      break;
+  }
+}
+
+// Export as JSON - COMPLETE DATA
+function exportExpenseGroupJSON(group) {
+  const exportData = {
+    name: group.name,
+    description: group.description || '',
+    currency: group.currency || 'NRs',
+    startDate: group.startDate,
+    endDate: group.endDate,
+    participants: group.participants || [],
+    expenses: (group.expenses || []).map(exp => ({
+      id: exp.id,
+      date: exp.date,
+      description: exp.description,
+      amount: exp.amount || 0,
+      paidBy: exp.paidBy,
+      splitType: exp.splitType,
+      splits: exp.splits || {},
+      notes: exp.notes || ''
+    })),
+    settled: group.settled || false
+  };
+
+  const filename = `${group.name.replace(/[^a-z0-9]/gi, '_')}_${getTimestamp()}.json`;
+  exportToJSON([exportData], filename.replace('.json', ''));
+  showToast('Expense group exported as JSON!');
+}
+
+// Export as CSV - SIMPLIFIED
+function exportExpenseGroupCSV(group) {
+  const participants = group.participants || [];
+  const expenses = group.expenses || [];
+  
+  // Create CSV with expense details
+  const csvData = expenses.map(exp => ({
+    groupName: group.name,
+    date: exp.date,
+    description: exp.description,
+    amount: exp.amount || 0,
+    paidBy: exp.paidBy,
+    splitType: exp.splitType,
+    notes: exp.notes || ''
+  }));
+
+  const filename = `${group.name.replace(/[^a-z0-9]/gi, '_')}_${getTimestamp()}`;
+  exportToCSV(csvData, filename);
+  showToast('Expense group exported as CSV!');
+}
+
+// Export as Excel with detailed sheets
+function exportExpenseGroupExcel(group) {
+  if (typeof XLSX === 'undefined') {
+    showToast('Excel library not loaded');
+    return;
+  }
+
+  try {
+    const participants = group.participants || [];
+    const expenses = group.expenses || [];
+    
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Summary
+    const summaryData = [
+      ['Expense Group Report'],
+      [''],
+      ['Group Name:', group.name],
+      ['Description:', group.description || ''],
+      ['Period:', `${formatDate(group.startDate)} to ${formatDate(group.endDate)}`],
+      ['Currency:', group.currency || 'NRs'],
+      ['Participants:', participants.join(', ')],
+      ['Total Expenses:', expenses.length],
+      ['Status:', group.settled ? 'Settled' : 'Pending'],
+      ['']
+    ];
+
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+    // Sheet 2: Expenses
+    if (expenses.length > 0) {
+      const expenseData = expenses.map(exp => ({
+        Date: exp.date,
+        Description: exp.description,
+        Amount: exp.amount || 0,
+        'Paid By': exp.paidBy,
+        'Split Type': exp.splitType === 'equal' ? 'Equal' : 'Custom',
+        Notes: exp.notes || ''
+      }));
+
+      const wsExpenses = XLSX.utils.json_to_sheet(expenseData);
+      XLSX.utils.book_append_sheet(wb, wsExpenses, 'Expenses');
+    }
+
+    // Sheet 3: Settlement
+    const balances = {};
+    const totalPaid = {};
+    const totalOwed = {};
+
+    participants.forEach(p => {
+      balances[p] = 0;
+      totalPaid[p] = 0;
+      totalOwed[p] = 0;
+    });
+
+    expenses.forEach(exp => {
+      const perPerson = exp.splitType === 'equal' 
+        ? (exp.amount || 0) / Math.max(participants.length, 1)
+        : 0;
+
+      participants.forEach(person => {
+        const owes = exp.splitType === 'equal' 
+          ? perPerson 
+          : ((exp.splits && exp.splits[person]) || 0);
+        const paid = exp.paidBy === person ? (exp.amount || 0) : 0;
+        
+        totalPaid[person] += paid;
+        totalOwed[person] += owes;
+        balances[person] += paid - owes;
+      });
+    });
+
+    const settlementData = participants.map(person => ({
+      Participant: person,
+      'Total Paid': totalPaid[person].toFixed(2),
+      'Total Owed': totalOwed[person].toFixed(2),
+      Balance: balances[person].toFixed(2),
+      Status: balances[person] > 0.01 ? 'Gets Back' : balances[person] < -0.01 ? 'Needs to Pay' : 'Settled'
+    }));
+
+    const wsSettlement = XLSX.utils.json_to_sheet(settlementData);
+    XLSX.utils.book_append_sheet(wb, wsSettlement, 'Settlement');
+
+    const filename = `${group.name.replace(/[^a-z0-9]/gi, '_')}_${getTimestamp()}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    showToast('Excel file exported successfully!');
+    
+  } catch (error) {
+    console.error('Excel export error:', error);
+    showToast('Error exporting to Excel: ' + error.message);
+  }
+}
