@@ -443,7 +443,7 @@ async function editVehicle(id) {
       <div class="form-group">
         <label for="vehCurrency">Currency</label>
         <select id="vehCurrency">
-          <option value="NRs" ${Vehicle.currency === 'NRs' ? 'selected' : ''}>NRs</option>
+          <option value="NRs" ${vehicle.currency === 'NRs' ? 'selected' : ''}>NRs</option>
           <option value="USD" ${vehicle.currency === 'USD' ? 'selected' : ''}>USD</option>
           <option value="EUR" ${vehicle.currency === 'EUR' ? 'selected' : ''}>EUR</option>
           <option value="GBP" ${vehicle.currency === 'GBP' ? 'selected' : ''}>GBP</option>
