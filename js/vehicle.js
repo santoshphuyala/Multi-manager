@@ -128,6 +128,7 @@ function showAddVehicle() {
       <div class="form-group">
         <label for="vehCurrency">Currency</label>
         <select id="vehCurrency">
+          <option value="NRs">NRs</option>
           <option value="USD">USD</option>
           <option value="EUR">EUR</option>
           <option value="GBP">GBP</option>
@@ -397,6 +398,7 @@ async function editVehicle(id) {
         <label for="vehType">Vehicle Type *</label>
         <select id="vehType" required>
           <option value="Car" ${vehicle.type === 'Car' ? 'selected' : ''}>Car</option>
+          <option value="Car" ${vehicle.type === 'Electric vehicle' ? 'selected' : ''}> EV Car</option>
           <option value="SUV" ${vehicle.type === 'SUV' ? 'selected' : ''}>SUV</option>
           <option value="Truck" ${vehicle.type === 'Truck' ? 'selected' : ''}>Truck</option>
           <option value="Motorcycle" ${vehicle.type === 'Motorcycle' ? 'selected' : ''}>Motorcycle</option>
@@ -439,6 +441,7 @@ async function editVehicle(id) {
       <div class="form-group">
         <label for="vehCurrency">Currency</label>
         <select id="vehCurrency">
+        <option value="NRs" ${Vehicle.currency === 'NRs' ? 'selected' : ''}>NRs</option>
           <option value="USD" ${vehicle.currency === 'USD' ? 'selected' : ''}>USD</option>
           <option value="EUR" ${vehicle.currency === 'EUR' ? 'selected' : ''}>EUR</option>
           <option value="GBP" ${vehicle.currency === 'GBP' ? 'selected' : ''}>GBP</option>
