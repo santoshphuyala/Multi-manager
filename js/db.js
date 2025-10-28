@@ -29,6 +29,7 @@ class DBManager {
           'medicines',
           'subscriptions',
           'expenses',
+          'expenseGroups',  // ADD THIS LINE
           'travels',
           'insurances',
           'bills',
