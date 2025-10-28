@@ -248,6 +248,7 @@ async function editExpense(id) {
       <div class="form-group">
         <label for="expCurrency">Currency</label>
         <select id="expCurrency">
+        <option value="NRs" ${exp.currency === 'NRs' ? 'selected' : ''}>NRs</option>
           <option value="USD" ${exp.currency === 'USD' ? 'selected' : ''}>USD</option>
           <option value="EUR" ${exp.currency === 'EUR' ? 'selected' : ''}>EUR</option>
           <option value="GBP" ${exp.currency === 'GBP' ? 'selected' : ''}>GBP</option>
