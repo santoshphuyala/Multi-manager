@@ -390,7 +390,8 @@ async function clearAllData() {
   }
 }
 
-// Individual Module Export with Format Selection
+// Find exportModuleData function and update it:
+
 async function exportModuleData(storeName, moduleName, format) {
   // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
@@ -401,6 +402,12 @@ async function exportModuleData(storeName, moduleName, format) {
     const data = await db.getAll(storeName);
     if (data.length === 0) {
       showToast('No data to export');
+      return;
+    }
+
+    // Special handling for expense groups
+    if (storeName === 'expenseGroups') {
+      exportAllExpenseGroups(data, format);
       return;
     }
 
@@ -424,6 +431,68 @@ async function exportModuleData(storeName, moduleName, format) {
   }
 }
 
+// Add this new function to settings.js:
+async function exportAllExpenseGroups(groups, format) {
+  if (typeof XLSX === 'undefined' && format === 'xlsx') {
+    showToast('Excel library not loaded');
+    return;
+  }
+
+  if (format === 'xlsx') {
+    // Create workbook with all groups
+    const wb = XLSX.utils.book_new();
+
+    groups.forEach((group, index) => {
+      // Summary sheet for each group
+      const summaryData = [
+        [group.name],
+        ['Period:', `${formatDate(group.startDate)} to ${formatDate(group.endDate)}`],
+        ['Participants:', group.participants.join(', ')],
+        ['Currency:', group.currency],
+        [''],
+        ['Date', 'Description', 'Amount', 'Paid By', 'Split Type']
+      ];
+
+      (group.expenses || []).forEach(exp => {
+        summaryData.push([
+          exp.date,
+          exp.description,
+          exp.amount,
+          exp.paidBy,
+          exp.splitType === 'equal' ? 'Equal' : 'Custom'
+        ]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(summaryData);
+      const sheetName = `${group.name.substring(0, 25)}_${index + 1}`;
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+
+    const filename = `ExpenseGroups_All_${getTimestamp()}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    showToast(`${groups.length} expense groups exported to Excel!`);
+
+  } else if (format === 'csv') {
+    // Export each group as separate CSV
+    groups.forEach(group => {
+      exportExpenseGroupCSV(group);
+    });
+    showToast(`${groups.length} CSV files exported!`);
+
+  } else if (format === 'json') {
+    const allData = groups.map(group => ({
+      name: group.name,
+      period: `${group.startDate} to ${group.endDate}`,
+      participants: group.participants,
+      expenses: group.expenses,
+      currency: group.currency,
+      settled: group.settled
+    }));
+    
+    exportToJSON(allData, `ExpenseGroups_All`);
+    showToast('All expense groups exported as JSON!');
+  }
+}
 // Individual Module Import with Format Selection
 function importModuleData(storeName, format) {
   // Close dropdown
