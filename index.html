@@ -163,9 +163,26 @@
                 <div class="quick-actions">
                     <h3>Quick Actions</h3>
                     <div class="action-buttons">
-                        <button onclick="importData()" class="btn btn-secondary">📥 Import Data</button>
-                        <button onclick="exportData()" class="btn btn-secondary">📤 Export Data</button>
-                        <button onclick="backupAllData()" class="btn btn-success">💾 Backup All</button>
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('dashboardImport')">
+                                📥 Import Data ▼
+                            </button>
+                            <div id="dashboardImport" class="dropdown-content">
+                                <a href="#" onclick="importAllDataFormat('json')">Import JSON</a>
+                                <a href="#" onclick="importAllDataFormat('xlsx')">Import Excel</a>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('dashboardExport')">
+                                📤 Export Data ▼
+                            </button>
+                            <div id="dashboardExport" class="dropdown-content">
+                                <a href="#" onclick="exportAllDataFormat('json')">Export as JSON</a>
+                                <a href="#" onclick="exportAllDataFormat('csv')">Export as CSV</a>
+                                <a href="#" onclick="exportAllDataFormat('xlsx')">Export as Excel</a>
+                            </div>
+                        </div>
+                        <button onclick="exportAllDataFormat('json')" class="btn btn-success">💾 Backup All</button>
                     </div>
                 </div>
             </section>
@@ -174,7 +191,29 @@
             <section id="medicineModule" class="module">
                 <div class="module-header">
                     <h2>💊 Medicine Tracker</h2>
-                    <button onclick="showAddMedicine()" class="btn btn-primary">+ Add Medicine</button>
+                    <div class="module-actions">
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('medicineExport')">
+                                📤 Export ▼
+                            </button>
+                            <div id="medicineExport" class="dropdown-content">
+                                <a href="#" onclick="exportModuleData('medicines', 'Medicine', 'json')">Export as JSON</a>
+                                <a href="#" onclick="exportModuleData('medicines', 'Medicine', 'csv')">Export as CSV</a>
+                                <a href="#" onclick="exportModuleData('medicines', 'Medicine', 'xlsx')">Export as Excel</a>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('medicineImport')">
+                                📥 Import ▼
+                            </button>
+                            <div id="medicineImport" class="dropdown-content">
+                                <a href="#" onclick="importModuleData('medicines', 'json')">Import JSON</a>
+                                <a href="#" onclick="importModuleData('medicines', 'csv')">Import CSV</a>
+                                <a href="#" onclick="importModuleData('medicines', 'xlsx')">Import Excel</a>
+                            </div>
+                        </div>
+                        <button onclick="showAddMedicine()" class="btn btn-primary">+ Add Medicine</button>
+                    </div>
                 </div>
                 <div id="medicineList" class="item-list"></div>
             </section>
@@ -183,7 +222,29 @@
             <section id="subscriptionModule" class="module">
                 <div class="module-header">
                     <h2>📱 Subscription Manager</h2>
-                    <button onclick="showAddSubscription()" class="btn btn-primary">+ Add Subscription</button>
+                    <div class="module-actions">
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('subscriptionExport')">
+                                📤 Export ▼
+                            </button>
+                            <div id="subscriptionExport" class="dropdown-content">
+                                <a href="#" onclick="exportModuleData('subscriptions', 'Subscription', 'json')">Export as JSON</a>
+                                <a href="#" onclick="exportModuleData('subscriptions', 'Subscription', 'csv')">Export as CSV</a>
+                                <a href="#" onclick="exportModuleData('subscriptions', 'Subscription', 'xlsx')">Export as Excel</a>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('subscriptionImport')">
+                                📥 Import ▼
+                            </button>
+                            <div id="subscriptionImport" class="dropdown-content">
+                                <a href="#" onclick="importModuleData('subscriptions', 'json')">Import JSON</a>
+                                <a href="#" onclick="importModuleData('subscriptions', 'csv')">Import CSV</a>
+                                <a href="#" onclick="importModuleData('subscriptions', 'xlsx')">Import Excel</a>
+                            </div>
+                        </div>
+                        <button onclick="showAddSubscription()" class="btn btn-primary">+ Add Subscription</button>
+                    </div>
                 </div>
                 <div id="subscriptionList" class="item-list"></div>
             </section>
@@ -192,7 +253,29 @@
             <section id="expenseModule" class="module">
                 <div class="module-header">
                     <h2>💰 Expense Splitter</h2>
-                    <button onclick="showAddExpense()" class="btn btn-primary">+ Add Expense</button>
+                    <div class="module-actions">
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('expenseExport')">
+                                📤 Export ▼
+                            </button>
+                            <div id="expenseExport" class="dropdown-content">
+                                <a href="#" onclick="exportModuleData('expenses', 'Expense', 'json')">Export as JSON</a>
+                                <a href="#" onclick="exportModuleData('expenses', 'Expense', 'csv')">Export as CSV</a>
+                                <a href="#" onclick="exportModuleData('expenses', 'Expense', 'xlsx')">Export as Excel</a>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('expenseImport')">
+                                📥 Import ▼
+                            </button>
+                            <div id="expenseImport" class="dropdown-content">
+                                <a href="#" onclick="importModuleData('expenses', 'json')">Import JSON</a>
+                                <a href="#" onclick="importModuleData('expenses', 'csv')">Import CSV</a>
+                                <a href="#" onclick="importModuleData('expenses', 'xlsx')">Import Excel</a>
+                            </div>
+                        </div>
+                        <button onclick="showAddExpense()" class="btn btn-primary">+ Add Expense</button>
+                    </div>
                 </div>
                 <div id="expenseList" class="item-list"></div>
             </section>
@@ -201,7 +284,29 @@
             <section id="travelModule" class="module">
                 <div class="module-header">
                     <h2>✈️ Travel Manager</h2>
-                    <button onclick="showAddTravel()" class="btn btn-primary">+ Add Trip</button>
+                    <div class="module-actions">
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('travelExport')">
+                                📤 Export ▼
+                            </button>
+                            <div id="travelExport" class="dropdown-content">
+                                <a href="#" onclick="exportModuleData('travels', 'Travel', 'json')">Export as JSON</a>
+                                <a href="#" onclick="exportModuleData('travels', 'Travel', 'csv')">Export as CSV</a>
+                                <a href="#" onclick="exportModuleData('travels', 'Travel', 'xlsx')">Export as Excel</a>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('travelImport')">
+                                📥 Import ▼
+                            </button>
+                            <div id="travelImport" class="dropdown-content">
+                                <a href="#" onclick="importModuleData('travels', 'json')">Import JSON</a>
+                                <a href="#" onclick="importModuleData('travels', 'csv')">Import CSV</a>
+                                <a href="#" onclick="importModuleData('travels', 'xlsx')">Import Excel</a>
+                            </div>
+                        </div>
+                        <button onclick="showAddTravel()" class="btn btn-primary">+ Add Trip</button>
+                    </div>
                 </div>
                 <div id="travelList" class="item-list"></div>
             </section>
@@ -210,7 +315,29 @@
             <section id="insuranceModule" class="module">
                 <div class="module-header">
                     <h2>🛡️ Insurance Manager</h2>
-                    <button onclick="showAddInsurance()" class="btn btn-primary">+ Add Policy</button>
+                    <div class="module-actions">
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('insuranceExport')">
+                                📤 Export ▼
+                            </button>
+                            <div id="insuranceExport" class="dropdown-content">
+                                <a href="#" onclick="exportModuleData('insurances', 'Insurance', 'json')">Export as JSON</a>
+                                <a href="#" onclick="exportModuleData('insurances', 'Insurance', 'csv')">Export as CSV</a>
+                                <a href="#" onclick="exportModuleData('insurances', 'Insurance', 'xlsx')">Export as Excel</a>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('insuranceImport')">
+                                📥 Import ▼
+                            </button>
+                            <div id="insuranceImport" class="dropdown-content">
+                                <a href="#" onclick="importModuleData('insurances', 'json')">Import JSON</a>
+                                <a href="#" onclick="importModuleData('insurances', 'csv')">Import CSV</a>
+                                <a href="#" onclick="importModuleData('insurances', 'xlsx')">Import Excel</a>
+                            </div>
+                        </div>
+                        <button onclick="showAddInsurance()" class="btn btn-primary">+ Add Policy</button>
+                    </div>
                 </div>
                 <div id="insuranceList" class="item-list"></div>
             </section>
@@ -219,7 +346,29 @@
             <section id="billModule" class="module">
                 <div class="module-header">
                     <h2>📄 Bill Reminder & Payment Tracker</h2>
-                    <button onclick="showAddBill()" class="btn btn-primary">+ Add Bill</button>
+                    <div class="module-actions">
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('billExport')">
+                                📤 Export ▼
+                            </button>
+                            <div id="billExport" class="dropdown-content">
+                                <a href="#" onclick="exportModuleData('bills', 'Bill', 'json')">Export as JSON</a>
+                                <a href="#" onclick="exportModuleData('bills', 'Bill', 'csv')">Export as CSV</a>
+                                <a href="#" onclick="exportModuleData('bills', 'Bill', 'xlsx')">Export as Excel</a>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('billImport')">
+                                📥 Import ▼
+                            </button>
+                            <div id="billImport" class="dropdown-content">
+                                <a href="#" onclick="importModuleData('bills', 'json')">Import JSON</a>
+                                <a href="#" onclick="importModuleData('bills', 'csv')">Import CSV</a>
+                                <a href="#" onclick="importModuleData('bills', 'xlsx')">Import Excel</a>
+                            </div>
+                        </div>
+                        <button onclick="showAddBill()" class="btn btn-primary">+ Add Bill</button>
+                    </div>
                 </div>
                 <div class="bill-summary" id="billSummary"></div>
                 <div id="billList" class="item-list"></div>
@@ -229,7 +378,29 @@
             <section id="vehicleModule" class="module">
                 <div class="module-header">
                     <h2>🚗 Vehicle Manager</h2>
-                    <button onclick="showAddVehicle()" class="btn btn-primary">+ Add Vehicle</button>
+                    <div class="module-actions">
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('vehicleExport')">
+                                📤 Export ▼
+                            </button>
+                            <div id="vehicleExport" class="dropdown-content">
+                                <a href="#" onclick="exportModuleData('vehicles', 'Vehicle', 'json')">Export as JSON</a>
+                                <a href="#" onclick="exportModuleData('vehicles', 'Vehicle', 'csv')">Export as CSV</a>
+                                <a href="#" onclick="exportModuleData('vehicles', 'Vehicle', 'xlsx')">Export as Excel</a>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('vehicleImport')">
+                                📥 Import ▼
+                            </button>
+                            <div id="vehicleImport" class="dropdown-content">
+                                <a href="#" onclick="importModuleData('vehicles', 'json')">Import JSON</a>
+                                <a href="#" onclick="importModuleData('vehicles', 'csv')">Import CSV</a>
+                                <a href="#" onclick="importModuleData('vehicles', 'xlsx')">Import Excel</a>
+                            </div>
+                        </div>
+                        <button onclick="showAddVehicle()" class="btn btn-primary">+ Add Vehicle</button>
+                    </div>
                 </div>
                 <div id="vehicleList" class="item-list"></div>
             </section>
@@ -238,7 +409,29 @@
             <section id="petModule" class="module">
                 <div class="module-header">
                     <h2>🐾 Pet Manager</h2>
-                    <button onclick="showAddPet()" class="btn btn-primary">+ Add Pet</button>
+                    <div class="module-actions">
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('petExport')">
+                                📤 Export ▼
+                            </button>
+                            <div id="petExport" class="dropdown-content">
+                                <a href="#" onclick="exportModuleData('pets', 'Pet', 'json')">Export as JSON</a>
+                                <a href="#" onclick="exportModuleData('pets', 'Pet', 'csv')">Export as CSV</a>
+                                <a href="#" onclick="exportModuleData('pets', 'Pet', 'xlsx')">Export as Excel</a>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('petImport')">
+                                📥 Import ▼
+                            </button>
+                            <div id="petImport" class="dropdown-content">
+                                <a href="#" onclick="importModuleData('pets', 'json')">Import JSON</a>
+                                <a href="#" onclick="importModuleData('pets', 'csv')">Import CSV</a>
+                                <a href="#" onclick="importModuleData('pets', 'xlsx')">Import Excel</a>
+                            </div>
+                        </div>
+                        <button onclick="showAddPet()" class="btn btn-primary">+ Add Pet</button>
+                    </div>
                 </div>
                 <div id="petList" class="item-list"></div>
             </section>
@@ -247,7 +440,29 @@
             <section id="customModule" class="module">
                 <div class="module-header">
                     <h2>⚡ Custom Tracker</h2>
-                    <button onclick="showAddCustomCategory()" class="btn btn-primary">+ Create Category</button>
+                    <div class="module-actions">
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('customExport')">
+                                📤 Export ▼
+                            </button>
+                            <div id="customExport" class="dropdown-content">
+                                <a href="#" onclick="exportCustomData('json')">Export as JSON</a>
+                                <a href="#" onclick="exportCustomData('csv')">Export as CSV</a>
+                                <a href="#" onclick="exportCustomData('xlsx')">Export as Excel</a>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('customImport')">
+                                📥 Import ▼
+                            </button>
+                            <div id="customImport" class="dropdown-content">
+                                <a href="#" onclick="importCustomData('json')">Import JSON</a>
+                                <a href="#" onclick="importCustomData('csv')">Import CSV</a>
+                                <a href="#" onclick="importCustomData('xlsx')">Import Excel</a>
+                            </div>
+                        </div>
+                        <button onclick="showAddCustomCategory()" class="btn btn-primary">+ Create Category</button>
+                    </div>
                 </div>
                 <div id="customCategories" class="custom-categories"></div>
                 <div id="customItemList" class="item-list"></div>
@@ -288,9 +503,31 @@
                     <div class="settings-group">
                         <h3>Data Management</h3>
                         <div class="setting-item">
-                            <button onclick="exportAllData()" class="btn btn-primary">📤 Export All Data</button>
-                            <button onclick="document.getElementById('importFile').click()" class="btn btn-secondary">📥 Import Data</button>
-                            <input type="file" id="importFile" accept=".json,.csv" style="display:none" onchange="handleImportFile(event)">
+                            <label>Export All Data:</label>
+                            <div class="dropdown">
+                                <button class="btn btn-primary dropdown-btn" onclick="toggleDropdown('settingsExport')">
+                                    📤 Export All Data ▼
+                                </button>
+                                <div id="settingsExport" class="dropdown-content">
+                                    <a href="#" onclick="exportAllDataFormat('json')">Export as JSON</a>
+                                    <a href="#" onclick="exportAllDataFormat('csv')">Export as CSV (All Modules)</a>
+                                    <a href="#" onclick="exportAllDataFormat('xlsx')">Export as Excel</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <label>Import Data:</label>
+                            <div class="dropdown">
+                                <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('settingsImport')">
+                                    📥 Import Data ▼
+                                </button>
+                                <div id="settingsImport" class="dropdown-content">
+                                    <a href="#" onclick="importAllDataFormat('json')">Import JSON</a>
+                                    <a href="#" onclick="importAllDataFormat('xlsx')">Import Excel</a>
+                                </div>
+                            </div>
+                            <input type="file" id="importFileJSON" accept=".json" style="display:none" onchange="handleImportFile(event, 'json')">
+                            <input type="file" id="importFileXLSX" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(event, 'xlsx')">
                         </div>
                         <div class="setting-item">
                             <button onclick="clearAllData()" class="btn btn-danger">🗑️ Clear All Data</button>
@@ -301,7 +538,7 @@
                         <h3>About</h3>
                         <p><strong>Developer:</strong> Santosh</p>
                         <p><strong>Email:</strong> <a href="mailto:xyz@gmail.com">xyz@gmail.com</a></p>
-                        <p><strong>Version:</strong> 1.0.0</p>
+                        <p><strong>Version:</strong> 2.0.0</p>
                     </div>
                 </div>
             </section>
@@ -325,6 +562,9 @@
     <div id="toast" class="toast"></div>
 
     <!-- Scripts -->
+    <!-- SheetJS for Excel support -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    
     <script src="js/db.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/medicine.js"></script>
