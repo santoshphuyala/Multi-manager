@@ -63,6 +63,7 @@ function showAddExpense() {
       <div class="form-group">
         <label for="expCurrency">Currency</label>
         <select id="expCurrency">
+         <option value="NRs">NRs</option>
           <option value="USD">USD</option>
           <option value="EUR">EUR</option>
           <option value="GBP">GBP</option>
