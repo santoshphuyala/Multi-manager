@@ -493,7 +493,7 @@ async function addExpenseToGroup(groupId) {
       </div>
       <div class="form-group">
         <label for="expAmount">Amount *</label>
-        <input type="number" id="expAmount" step="0.01" min="0" required onchange="updateCustomSplitTotal()">
+        <input type="number" id="expAmount" step="0.01" min="0.01" required onchange="updateCustomSplitTotal()">
       </div>
       ${createDateInput('expDate', 'Date *', new Date().toISOString().split('T')[0])}
       <div class="form-group">
@@ -504,15 +504,15 @@ async function addExpenseToGroup(groupId) {
       </div>
       <div class="form-group">
         <label for="expSplitType">Split Type *</label>
-        <select id="expSplitType" onchange="toggleExpenseSplitType(${groupId})" required>
+        <select id="expSplitType" onchange="handleSplitTypeChange()" required>
           <option value="equal">Equal Split</option>
           <option value="custom">Custom Split</option>
         </select>
       </div>
       <div id="customSplitContainer" class="hidden">
         <label>Custom Split Amounts</label>
-        <div id="customSplitValidation" style="margin-bottom: 0.5rem; padding: 0.5rem; background: #f0f0f0; border-radius: 4px; display: none;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div id="customSplitValidation" style="margin-bottom: 0.5rem; padding: 0.5rem; background: #f0f0f0; border-radius: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
             <span>Total Split: <strong id="customSplitSum">0.00</strong></span>
             <span>Expected: <strong id="customSplitExpected">0.00</strong></span>
             <span id="customSplitStatus" style="font-weight: bold;"></span>
@@ -540,55 +540,71 @@ async function addExpenseToGroup(groupId) {
   openModal('Add Expense to Group', form);
 }
 
-function toggleExpenseSplitType(groupId) {
+// Handle split type change
+function handleSplitTypeChange() {
   const splitType = document.getElementById('expSplitType').value;
   const container = document.getElementById('customSplitContainer');
-  const validationDiv = document.getElementById('customSplitValidation');
+  const saveBtn = document.getElementById('saveExpenseBtn');
   
   if (splitType === 'custom') {
     container.classList.remove('hidden');
-    if (validationDiv) {
-      validationDiv.style.display = 'block';
-      updateCustomSplitTotal();
-    }
+    updateCustomSplitTotal();
+    validateCustomSplit();
   } else {
+    // Equal split mode
     container.classList.add('hidden');
-    if (validationDiv) {
-      validationDiv.style.display = 'none';
+    // Always enable button in equal mode
+    if (saveBtn) {
+      saveBtn.disabled = false;
     }
   }
 }
 
-// NEW FUNCTION: Update custom split total display
+// Legacy support for old function name
+function toggleExpenseSplitType(groupId) {
+  handleSplitTypeChange();
+}
+
+// Update custom split total display
 function updateCustomSplitTotal() {
   const amountInput = document.getElementById('expAmount');
   const expectedAmount = parseFloat(amountInput?.value) || 0;
   const expectedSpan = document.getElementById('customSplitExpected');
   
   if (expectedSpan) {
-    expectedSpan.textContent = roundToTwo(expectedAmount);
+    expectedSpan.textContent = roundToTwo(expectedAmount).toFixed(2);
   }
   
   validateCustomSplit();
 }
 
-// NEW FUNCTION: Validate custom split in real-time
+// Validate custom split in real-time
 function validateCustomSplit() {
+  const splitType = document.getElementById('expSplitType')?.value;
+  
+  // Only validate if in custom mode
+  if (splitType !== 'custom') {
+    return;
+  }
+  
   const splitInputs = document.querySelectorAll('.custom-split-input');
   const amountInput = document.getElementById('expAmount');
   const sumSpan = document.getElementById('customSplitSum');
   const statusSpan = document.getElementById('customSplitStatus');
   const saveBtn = document.getElementById('saveExpenseBtn');
   
-  if (!splitInputs.length || !amountInput) return;
+  if (!splitInputs.length || !amountInput || !sumSpan || !statusSpan || !saveBtn) {
+    return;
+  }
   
   let totalSplit = 0;
   let hasInvalidInput = false;
   
   splitInputs.forEach(input => {
-    const value = parseFloat(input.value) || 0;
-    if (value < 0) {
+    const value = parseFloat(input.value);
+    if (isNaN(value) || value < 0) {
       hasInvalidInput = true;
+      return;
     }
     totalSplit += value;
   });
@@ -599,42 +615,36 @@ function validateCustomSplit() {
   totalSplit = roundToTwo(totalSplit);
   const expectedRounded = roundToTwo(expectedAmount);
   
-  if (sumSpan) {
-    sumSpan.textContent = totalSplit.toFixed(2);
-  }
+  sumSpan.textContent = totalSplit.toFixed(2);
   
   // Use tolerance for comparison (0.02 allows for 1 cent rounding per person)
   const tolerance = 0.02;
   const difference = Math.abs(totalSplit - expectedRounded);
   
   if (hasInvalidInput) {
-    if (statusSpan) {
-      statusSpan.textContent = '❌ Invalid amounts';
-      statusSpan.style.color = 'red';
-    }
-    if (saveBtn) saveBtn.disabled = true;
+    statusSpan.textContent = '❌ Invalid amounts';
+    statusSpan.style.color = '#dc3545';
+    saveBtn.disabled = true;
+  } else if (expectedAmount === 0) {
+    statusSpan.textContent = '⚠️ Enter total amount first';
+    statusSpan.style.color = '#ffc107';
+    saveBtn.disabled = true;
   } else if (difference <= tolerance) {
-    if (statusSpan) {
-      statusSpan.textContent = '✓ Valid';
-      statusSpan.style.color = 'green';
-    }
-    if (saveBtn) saveBtn.disabled = false;
+    statusSpan.textContent = '✓ Valid';
+    statusSpan.style.color = '#28a745';
+    saveBtn.disabled = false;
   } else if (totalSplit < expectedRounded) {
-    if (statusSpan) {
-      statusSpan.textContent = `⚠️ Short by ${(expectedRounded - totalSplit).toFixed(2)}`;
-      statusSpan.style.color = 'orange';
-    }
-    if (saveBtn) saveBtn.disabled = true;
+    statusSpan.textContent = `⚠️ Short by ${(expectedRounded - totalSplit).toFixed(2)}`;
+    statusSpan.style.color = '#fd7e14';
+    saveBtn.disabled = true;
   } else {
-    if (statusSpan) {
-      statusSpan.textContent = `⚠️ Over by ${(totalSplit - expectedRounded).toFixed(2)}`;
-      statusSpan.style.color = 'orange';
-    }
-    if (saveBtn) saveBtn.disabled = true;
+    statusSpan.textContent = `⚠️ Over by ${(totalSplit - expectedRounded).toFixed(2)}`;
+    statusSpan.style.color = '#fd7e14';
+    saveBtn.disabled = true;
   }
 }
 
-// NEW FUNCTION: Round to 2 decimal places properly
+// Round to 2 decimal places properly
 function roundToTwo(num) {
   return Math.round((num + Number.EPSILON) * 100) / 100;
 }
@@ -651,12 +661,13 @@ async function saveExpenseToGroup(event, groupId) {
     }
 
     const participants = group.participants || [];
-    const amount = parseFloat(document.getElementById('expAmount').value);
+    const amountInput = document.getElementById('expAmount');
+    const amount = parseFloat(amountInput.value);
     const splitType = document.getElementById('expSplitType').value;
 
     // Validate amount
     if (isNaN(amount) || amount <= 0) {
-      showToast('Please enter a valid amount');
+      showToast('Please enter a valid amount greater than 0');
       return;
     }
 
@@ -676,9 +687,9 @@ async function saveExpenseToGroup(event, groupId) {
           return;
         }
         
-        const splitAmount = parseFloat(splitInput.value) || 0;
+        const splitAmount = parseFloat(splitInput.value);
         
-        if (splitAmount < 0) {
+        if (isNaN(splitAmount) || splitAmount < 0) {
           hasInvalidInput = true;
           return;
         }
@@ -713,17 +724,24 @@ async function saveExpenseToGroup(event, groupId) {
         splits[largestSplitPerson] = roundToTwo(splits[largestSplitPerson] + (roundedAmount - totalSplit));
       }
     }
+    // For equal split, splits object remains empty
 
     const expense = {
       id: generateId(),
-      description: document.getElementById('expDescription').value,
+      description: document.getElementById('expDescription').value.trim(),
       amount: roundedAmount,
       date: document.getElementById('expDate').value,
       paidBy: document.getElementById('expPaidBy').value,
       splitType: splitType,
       splits: splitType === 'custom' ? splits : {},
-      notes: document.getElementById('expNotes').value
+      notes: document.getElementById('expNotes').value.trim()
     };
+
+    // Validate description
+    if (!expense.description) {
+      showToast('Please enter a description');
+      return;
+    }
 
     // Validate date is within group period
     if (expense.date < group.startDate || expense.date > group.endDate) {
@@ -740,14 +758,15 @@ async function saveExpenseToGroup(event, groupId) {
       const index = group.expenses.findIndex(e => e.id === expenseId);
       if (index !== -1) {
         group.expenses[index] = { ...expense, id: expenseId };
+        showToast('Expense updated successfully!');
       }
     } else {
       // Add new expense
       group.expenses.push(expense);
+      showToast('Expense added successfully!');
     }
 
     await db.update('expenseGroups', group);
-    showToast('Expense saved successfully!');
     viewGroupDetails(groupId);
   } catch (error) {
     console.error('Error saving expense:', error);
@@ -780,11 +799,11 @@ async function editExpenseInGroup(groupId, expenseId) {
       <input type="hidden" id="expenseEditId" value="${expense.id}">
       <div class="form-group">
         <label for="expDescription">Description *</label>
-        <input type="text" id="expDescription" value="${expense.description}" required>
+        <input type="text" id="expDescription" value="${expense.description || ''}" required>
       </div>
       <div class="form-group">
         <label for="expAmount">Amount *</label>
-        <input type="number" id="expAmount" step="0.01" value="${expense.amount || 0}" required onchange="updateCustomSplitTotal()">
+        <input type="number" id="expAmount" step="0.01" min="0.01" value="${expense.amount || 0}" required onchange="updateCustomSplitTotal()">
       </div>
       ${createDateInput('expDate', 'Date *', expense.date)}
       <div class="form-group">
@@ -797,15 +816,15 @@ async function editExpenseInGroup(groupId, expenseId) {
       </div>
       <div class="form-group">
         <label for="expSplitType">Split Type *</label>
-        <select id="expSplitType" onchange="toggleExpenseSplitType(${groupId})" required>
+        <select id="expSplitType" onchange="handleSplitTypeChange()" required>
           <option value="equal" ${expense.splitType === 'equal' ? 'selected' : ''}>Equal Split</option>
           <option value="custom" ${expense.splitType === 'custom' ? 'selected' : ''}>Custom Split</option>
         </select>
       </div>
       <div id="customSplitContainer" class="${expense.splitType === 'custom' ? '' : 'hidden'}">
         <label>Custom Split Amounts</label>
-        <div id="customSplitValidation" style="margin-bottom: 0.5rem; padding: 0.5rem; background: #f0f0f0; border-radius: 4px; ${expense.splitType === 'custom' ? '' : 'display: none;'}">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div id="customSplitValidation" style="margin-bottom: 0.5rem; padding: 0.5rem; background: #f0f0f0; border-radius: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
             <span>Total Split: <strong id="customSplitSum">0.00</strong></span>
             <span>Expected: <strong id="customSplitExpected">0.00</strong></span>
             <span id="customSplitStatus" style="font-weight: bold;"></span>
@@ -814,7 +833,7 @@ async function editExpenseInGroup(groupId, expenseId) {
         ${participants.map(p => `
           <div class="form-group">
             <label for="split_${p}">${p}</label>
-            <input type="number" id="split_${p}" step="0.01" value="${(expense.splits && expense.splits[p]) || 0}" class="custom-split-input" oninput="validateCustomSplit()">
+            <input type="number" id="split_${p}" step="0.01" min="0" value="${(expense.splits && expense.splits[p]) || 0}" class="custom-split-input" oninput="validateCustomSplit()">
           </div>
         `).join('')}
         <small style="color: var(--text-secondary);">Total must equal the expense amount</small>
@@ -833,12 +852,16 @@ async function editExpenseInGroup(groupId, expenseId) {
   openModal('Edit Expense', form);
   
   // Initialize validation if custom split
-  if (expense.splitType === 'custom') {
-    setTimeout(() => {
+  setTimeout(() => {
+    if (expense.splitType === 'custom') {
       updateCustomSplitTotal();
       validateCustomSplit();
-    }, 100);
-  }
+    } else {
+      // Make sure button is enabled for equal split
+      const saveBtn = document.getElementById('saveExpenseBtn');
+      if (saveBtn) saveBtn.disabled = false;
+    }
+  }, 100);
 }
 
 // ==================== EXPENSE ACTIONS ====================
@@ -860,7 +883,7 @@ async function viewExpenseInGroup(groupId, expenseId) {
   }
 
   const perPerson = expense.splitType === 'equal' 
-    ? (expense.amount || 0) / participants.length 
+    ? (expense.amount || 0) / Math.max(participants.length, 1)
     : 0;
 
   let content = `
@@ -909,75 +932,6 @@ async function viewExpenseInGroup(groupId, expenseId) {
   `;
 
   openModal('Expense Details', content);
-}
-
-async function editExpenseInGroup(groupId, expenseId) {
-  closeModal();
-  
-  const group = await db.get('expenseGroups', groupId);
-  
-  if (!group) {
-    showToast('Group not found');
-    return;
-  }
-
-  const participants = group.participants || [];
-  const expenses = group.expenses || [];
-  const expense = expenses.find(e => e.id === expenseId);
-  
-  if (!expense) {
-    showToast('Expense not found');
-    return;
-  }
-
-  const form = `
-    <form onsubmit="saveExpenseToGroup(event, ${groupId})">
-      <input type="hidden" id="expenseEditId" value="${expense.id}">
-      <div class="form-group">
-        <label for="expDescription">Description *</label>
-        <input type="text" id="expDescription" value="${expense.description}" required>
-      </div>
-      <div class="form-group">
-        <label for="expAmount">Amount *</label>
-        <input type="number" id="expAmount" step="0.01" value="${expense.amount || 0}" required>
-      </div>
-      ${createDateInput('expDate', 'Date *', expense.date)}
-      <div class="form-group">
-        <label for="expPaidBy">Paid By *</label>
-        <select id="expPaidBy" required>
-          ${participants.map(p => `
-            <option value="${p}" ${expense.paidBy === p ? 'selected' : ''}>${p}</option>
-          `).join('')}
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="expSplitType">Split Type *</label>
-        <select id="expSplitType" onchange="toggleExpenseSplitType(${groupId})" required>
-          <option value="equal" ${expense.splitType === 'equal' ? 'selected' : ''}>Equal Split</option>
-          <option value="custom" ${expense.splitType === 'custom' ? 'selected' : ''}>Custom Split</option>
-        </select>
-      </div>
-      <div id="customSplitContainer" class="${expense.splitType === 'custom' ? '' : 'hidden'}">
-        <label>Custom Split Amounts</label>
-        ${participants.map(p => `
-          <div class="form-group">
-            <label for="split_${p}">${p}</label>
-            <input type="number" id="split_${p}" step="0.01" value="${(expense.splits && expense.splits[p]) || 0}" class="custom-split-input">
-          </div>
-        `).join('')}
-      </div>
-      <div class="form-group">
-        <label for="expNotes">Notes</label>
-        <textarea id="expNotes">${expense.notes || ''}</textarea>
-      </div>
-      <div class="form-actions">
-        <button type="button" onclick="viewGroupDetails(${groupId})" class="btn btn-secondary">Cancel</button>
-        <button type="submit" class="btn btn-primary">Update Expense</button>
-      </div>
-    </form>
-  `;
-
-  openModal('Edit Expense', form);
 }
 
 async function deleteExpenseFromGroup(groupId, expenseId) {
