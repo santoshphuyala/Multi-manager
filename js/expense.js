@@ -776,3 +776,430 @@ function switchExpenseTab(event, tabName) {
   event.target.classList.add('active');
   document.getElementById(`${tabName}Tab`).classList.add('active');
 }
+// ==================== ENHANCED EXPORT FUNCTIONS ====================
+
+async function exportExpenseGroup(groupId, format) {
+  const group = await db.get('expenseGroups', groupId);
+  
+  if (!group) {
+    showToast('Group not found');
+    return;
+  }
+
+  switch(format) {
+    case 'json':
+      exportExpenseGroupJSON(group);
+      break;
+    case 'csv':
+      exportExpenseGroupCSV(group);
+      break;
+    case 'xlsx':
+      exportExpenseGroupExcel(group);
+      break;
+  }
+}
+
+// Export as formatted Excel with multiple sheets
+function exportExpenseGroupExcel(group) {
+  if (typeof XLSX === 'undefined') {
+    showToast('Excel library not loaded');
+    return;
+  }
+
+  try {
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Group Summary
+    const summaryData = [
+      ['Expense Group Report'],
+      [''],
+      ['Group Name:', group.name],
+      ['Description:', group.description || 'N/A'],
+      ['Period:', `${formatDate(group.startDate)} to ${formatDate(group.endDate)}`],
+      ['Currency:', group.currency],
+      ['Participants:', group.participants.join(', ')],
+      ['Total Expenses:', (group.expenses || []).length],
+      ['Status:', group.settled ? 'Settled' : 'Pending'],
+      ['']
+    ];
+
+    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+    // Sheet 2: Detailed Expenses (Day-wise)
+    const expensesData = [
+      ['Date', 'Description', 'Amount', 'Paid By', 'Split Type', 'Notes']
+    ];
+
+    // Group by date
+    const expensesByDate = {};
+    (group.expenses || []).forEach(exp => {
+      if (!expensesByDate[exp.date]) {
+        expensesByDate[exp.date] = [];
+      }
+      expensesByDate[exp.date].push(exp);
+    });
+
+    const sortedDates = Object.keys(expensesByDate).sort();
+    let grandTotal = 0;
+
+    sortedDates.forEach(date => {
+      const dayExpenses = expensesByDate[date];
+      const dayTotal = dayExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+      grandTotal += dayTotal;
+
+      // Date header
+      expensesData.push([`=== ${formatDate(date)} ===`, '', '', '', '', '']);
+
+      // Expenses for this day
+      dayExpenses.forEach(exp => {
+        expensesData.push([
+          formatDate(exp.date),
+          exp.description,
+          exp.amount,
+          exp.paidBy,
+          exp.splitType === 'equal' ? 'Equal Split' : 'Custom Split',
+          exp.notes || ''
+        ]);
+      });
+
+      // Day subtotal
+      expensesData.push([
+        '',
+        'Day Total',
+        dayTotal,
+        '',
+        '',
+        ''
+      ]);
+      expensesData.push(['']); // Empty row
+    });
+
+    // Grand total
+    expensesData.push([
+      '',
+      'GRAND TOTAL',
+      grandTotal,
+      '',
+      '',
+      ''
+    ]);
+
+    const wsExpenses = XLSX.utils.aoa_to_sheet(expensesData);
+    
+    // Set column widths
+    wsExpenses['!cols'] = [
+      { wch: 12 },
+      { wch: 25 },
+      { wch: 12 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 30 }
+    ];
+
+    XLSX.utils.book_append_sheet(wb, wsExpenses, 'Expenses');
+
+    // Sheet 3: Split Details
+    const splitData = [
+      ['Date', 'Description', 'Participant', 'Share Amount', 'Paid Amount', 'Balance']
+    ];
+
+    sortedDates.forEach(date => {
+      const dayExpenses = expensesByDate[date];
+      
+      expensesData.push([`=== ${formatDate(date)} ===`, '', '', '', '', '']);
+
+      dayExpenses.forEach(exp => {
+        const perPerson = exp.splitType === 'equal' 
+          ? exp.amount / group.participants.length 
+          : 0;
+
+        group.participants.forEach(person => {
+          const share = exp.splitType === 'equal' 
+            ? perPerson 
+            : (exp.splits[person] || 0);
+          const paid = exp.paidBy === person ? exp.amount : 0;
+          const balance = paid - share;
+
+          splitData.push([
+            formatDate(exp.date),
+            exp.description,
+            person,
+            share.toFixed(2),
+            paid.toFixed(2),
+            balance.toFixed(2)
+          ]);
+        });
+
+        splitData.push(['']); // Empty row after each expense
+      });
+    });
+
+    const wsSplit = XLSX.utils.aoa_to_sheet(splitData);
+    wsSplit['!cols'] = [
+      { wch: 12 },
+      { wch: 25 },
+      { wch: 15 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 12 }
+    ];
+    XLSX.utils.book_append_sheet(wb, wsSplit, 'Split Details');
+
+    // Sheet 4: Settlement Summary
+    const settlementData = [
+      ['Settlement Summary'],
+      [''],
+      ['Participant', 'Total Paid', 'Total Owed', 'Balance', 'Status']
+    ];
+
+    const balances = {};
+    const totalPaid = {};
+    const totalOwed = {};
+
+    group.participants.forEach(p => {
+      balances[p] = 0;
+      totalPaid[p] = 0;
+      totalOwed[p] = 0;
+    });
+
+    (group.expenses || []).forEach(exp => {
+      const perPerson = exp.splitType === 'equal' 
+        ? exp.amount / group.participants.length 
+        : 0;
+
+      group.participants.forEach(person => {
+        const owes = exp.splitType === 'equal' 
+          ? perPerson 
+          : (exp.splits[person] || 0);
+        const paid = exp.paidBy === person ? exp.amount : 0;
+        
+        totalPaid[person] += paid;
+        totalOwed[person] += owes;
+        balances[person] += paid - owes;
+      });
+    });
+
+    group.participants.forEach(person => {
+      const balance = balances[person];
+      const status = balance > 0.01 ? 'Gets Back' : balance < -0.01 ? 'Needs to Pay' : 'Settled';
+      
+      settlementData.push([
+        person,
+        totalPaid[person].toFixed(2),
+        totalOwed[person].toFixed(2),
+        balance.toFixed(2),
+        status
+      ]);
+    });
+
+    settlementData.push(['']);
+    settlementData.push(['Payment Instructions']);
+    settlementData.push(['']);
+
+    const settlements = calculateDaySettlement(group.expenses || [], group.participants, group.currency);
+    
+    if (settlements.length === 0) {
+      settlementData.push(['All payments are settled!']);
+    } else {
+      settlements.forEach((instruction, index) => {
+        settlementData.push([`${index + 1}. ${instruction}`]);
+      });
+    }
+
+    const wsSettlement = XLSX.utils.aoa_to_sheet(settlementData);
+    wsSettlement['!cols'] = [
+      { wch: 15 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 15 }
+    ];
+    XLSX.utils.book_append_sheet(wb, wsSettlement, 'Settlement');
+
+    // Export file
+    const filename = `${group.name.replace(/[^a-z0-9]/gi, '_')}_${getTimestamp()}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    showToast('Excel file exported successfully!');
+    
+  } catch (error) {
+    console.error('Excel export error:', error);
+    showToast('Error exporting to Excel: ' + error.message);
+  }
+}
+
+// Export as formatted CSV
+function exportExpenseGroupCSV(group) {
+  let csv = '';
+  
+  // Summary section
+  csv += `Expense Group Report\n\n`;
+  csv += `Group Name,${group.name}\n`;
+  csv += `Description,${group.description || 'N/A'}\n`;
+  csv += `Period,${formatDate(group.startDate)} to ${formatDate(group.endDate)}\n`;
+  csv += `Currency,${group.currency}\n`;
+  csv += `Participants,"${group.participants.join(', ')}"\n`;
+  csv += `Total Expenses,${(group.expenses || []).length}\n`;
+  csv += `Status,${group.settled ? 'Settled' : 'Pending'}\n\n`;
+
+  // Detailed expenses
+  csv += `\nDetailed Expenses\n`;
+  csv += `Date,Description,Amount,Paid By,Split Type,Notes\n`;
+
+  const expensesByDate = {};
+  (group.expenses || []).forEach(exp => {
+    if (!expensesByDate[exp.date]) {
+      expensesByDate[exp.date] = [];
+    }
+    expensesByDate[exp.date].push(exp);
+  });
+
+  const sortedDates = Object.keys(expensesByDate).sort();
+  let grandTotal = 0;
+
+  sortedDates.forEach(date => {
+    const dayExpenses = expensesByDate[date];
+    const dayTotal = dayExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    grandTotal += dayTotal;
+
+    csv += `\n=== ${formatDate(date)} ===\n`;
+
+    dayExpenses.forEach(exp => {
+      csv += `${formatDate(exp.date)},"${exp.description}",${exp.amount},${exp.paidBy},${exp.splitType === 'equal' ? 'Equal Split' : 'Custom Split'},"${exp.notes || ''}"\n`;
+    });
+
+    csv += `,Day Total,${dayTotal}\n`;
+  });
+
+  csv += `\n,GRAND TOTAL,${grandTotal}\n`;
+
+  // Settlement summary
+  csv += `\n\nSettlement Summary\n`;
+  csv += `Participant,Total Paid,Total Owed,Balance,Status\n`;
+
+  const balances = {};
+  const totalPaid = {};
+  const totalOwed = {};
+
+  group.participants.forEach(p => {
+    balances[p] = 0;
+    totalPaid[p] = 0;
+    totalOwed[p] = 0;
+  });
+
+  (group.expenses || []).forEach(exp => {
+    const perPerson = exp.splitType === 'equal' 
+      ? exp.amount / group.participants.length 
+      : 0;
+
+    group.participants.forEach(person => {
+      const owes = exp.splitType === 'equal' 
+        ? perPerson 
+        : (exp.splits[person] || 0);
+      const paid = exp.paidBy === person ? exp.amount : 0;
+      
+      totalPaid[person] += paid;
+      totalOwed[person] += owes;
+      balances[person] += paid - owes;
+    });
+  });
+
+  group.participants.forEach(person => {
+    const balance = balances[person];
+    const status = balance > 0.01 ? 'Gets Back' : balance < -0.01 ? 'Needs to Pay' : 'Settled';
+    
+    csv += `${person},${totalPaid[person].toFixed(2)},${totalOwed[person].toFixed(2)},${balance.toFixed(2)},${status}\n`;
+  });
+
+  csv += `\n\nPayment Instructions\n`;
+  
+  const settlements = calculateDaySettlement(group.expenses || [], group.participants, group.currency);
+  
+  if (settlements.length === 0) {
+    csv += `All payments are settled!\n`;
+  } else {
+    settlements.forEach((instruction, index) => {
+      csv += `${index + 1}. ${instruction}\n`;
+    });
+  }
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const filename = `${group.name.replace(/[^a-z0-9]/gi, '_')}_${getTimestamp()}.csv`;
+  downloadFile(blob, filename);
+  showToast('CSV file exported successfully!');
+}
+
+// Export as JSON (formatted)
+function exportExpenseGroupJSON(group) {
+  const exportData = {
+    groupInfo: {
+      name: group.name,
+      description: group.description,
+      currency: group.currency,
+      period: {
+        start: group.startDate,
+        end: group.endDate
+      },
+      participants: group.participants,
+      status: group.settled ? 'Settled' : 'Pending'
+    },
+    expenses: (group.expenses || []).map(exp => ({
+      date: exp.date,
+      description: exp.description,
+      amount: exp.amount,
+      paidBy: exp.paidBy,
+      splitType: exp.splitType,
+      customSplits: exp.splitType === 'custom' ? exp.splits : null,
+      notes: exp.notes
+    })),
+    settlement: generateSettlementJSON(group)
+  };
+
+  const filename = `${group.name.replace(/[^a-z0-9]/gi, '_')}_${getTimestamp()}.json`;
+  exportToJSON(exportData, filename.replace('.json', ''));
+  showToast('JSON file exported successfully!');
+}
+
+function generateSettlementJSON(group) {
+  const balances = {};
+  const totalPaid = {};
+  const totalOwed = {};
+
+  group.participants.forEach(p => {
+    balances[p] = 0;
+    totalPaid[p] = 0;
+    totalOwed[p] = 0;
+  });
+
+  (group.expenses || []).forEach(exp => {
+    const perPerson = exp.splitType === 'equal' 
+      ? exp.amount / group.participants.length 
+      : 0;
+
+    group.participants.forEach(person => {
+      const owes = exp.splitType === 'equal' 
+        ? perPerson 
+        : (exp.splits[person] || 0);
+      const paid = exp.paidBy === person ? exp.amount : 0;
+      
+      totalPaid[person] += paid;
+      totalOwed[person] += owes;
+      balances[person] += paid - owes;
+    });
+  });
+
+  const summary = group.participants.map(person => ({
+    participant: person,
+    totalPaid: parseFloat(totalPaid[person].toFixed(2)),
+    totalOwed: parseFloat(totalOwed[person].toFixed(2)),
+    balance: parseFloat(balances[person].toFixed(2)),
+    status: balances[person] > 0.01 ? 'Gets Back' : balances[person] < -0.01 ? 'Needs to Pay' : 'Settled'
+  }));
+
+  const settlements = calculateDaySettlement(group.expenses || [], group.participants, group.currency);
+
+  return {
+    individualBalances: summary,
+    paymentInstructions: settlements
+  };
+}
