@@ -1,4 +1,4 @@
-// Enhanced Settings Module with Format Selection - COMPLETE FIXED VERSION
+// Enhanced Settings Module - COMPLETE REWRITE FOR RELIABLE EXPORT/IMPORT
 
 function loadSettings() {
   // Load PIN setting
@@ -78,7 +78,6 @@ function applyTheme(theme) {
 // ==================== EXPORT ALL DATA ====================
 
 async function exportAllDataFormat(format) {
-  // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
     dropdown.classList.remove('show');
   });
@@ -89,49 +88,14 @@ async function exportAllDataFormat(format) {
     
     switch(format) {
       case 'json':
-        exportToJSON(data, baseFilename);
-        showToast('Full backup exported as JSON!');
+        await exportAllAsJSON(data, baseFilename);
         break;
-        
       case 'csv':
-        // Export each module as separate CSV
-        const stores = ['medicines', 'subscriptions', 'expenseGroups', 'travels', 'insurances', 'bills', 'vehicles', 'pets', 'customCategories', 'customItems'];
-        let exportedCount = 0;
-        
-        for (const store of stores) {
-          if (data[store] && data[store].length > 0) {
-            // Special handling for expense groups
-            if (store === 'expenseGroups') {
-              const csvData = data[store].map(group => ({
-                name: group.name || 'Untitled',
-                description: group.description || '',
-                currency: group.currency || 'NRs',
-                startDate: group.startDate || '',
-                endDate: group.endDate || '',
-                participants: (group.participants || []).join(', '),
-                expenseCount: (group.expenses || []).length,
-                settled: group.settled ? 'Yes' : 'No'
-              }));
-              exportToCSV(csvData, `${baseFilename}-${store}`);
-            } else {
-              exportToCSV(data[store], `${baseFilename}-${store}`);
-            }
-            exportedCount++;
-          }
-        }
-        
-        if (exportedCount > 0) {
-          showToast(`${exportedCount} CSV files exported successfully!`);
-        } else {
-          showToast('No data to export');
-        }
+        await exportAllAsCSV(data, baseFilename);
         break;
-        
       case 'xlsx':
-        // Create multi-sheet Excel file
-        await exportAllToExcel(data, baseFilename);
+        await exportAllAsExcel(data, baseFilename);
         break;
-        
       default:
         showToast('Invalid format selected');
     }
@@ -141,8 +105,79 @@ async function exportAllDataFormat(format) {
   }
 }
 
-// Export all data to multi-sheet Excel
-async function exportAllToExcel(data, baseFilename) {
+// Export all as JSON
+async function exportAllAsJSON(data, baseFilename) {
+  // Clean and prepare data
+  const cleanData = {
+    medicines: data.medicines || [],
+    subscriptions: data.subscriptions || [],
+    expenseGroups: (data.expenseGroups || []).map(group => ({
+      name: group.name,
+      description: group.description || '',
+      currency: group.currency || 'NRs',
+      startDate: group.startDate,
+      endDate: group.endDate,
+      participants: group.participants || [],
+      expenses: (group.expenses || []).map(exp => ({
+        id: exp.id,
+        date: exp.date,
+        description: exp.description,
+        amount: exp.amount || 0,
+        paidBy: exp.paidBy,
+        splitType: exp.splitType,
+        splits: exp.splits || {},
+        notes: exp.notes || ''
+      })),
+      settled: group.settled || false
+    })),
+    travels: data.travels || [],
+    insurances: data.insurances || [],
+    bills: data.bills || [],
+    vehicles: data.vehicles || [],
+    pets: data.pets || [],
+    customCategories: data.customCategories || [],
+    customItems: data.customItems || []
+  };
+
+  exportToJSON(cleanData, baseFilename);
+  showToast('Full backup exported as JSON!');
+}
+
+// Export all as CSV
+async function exportAllAsCSV(data, baseFilename) {
+  const stores = ['medicines', 'subscriptions', 'expenseGroups', 'travels', 'insurances', 'bills', 'vehicles', 'pets', 'customCategories', 'customItems'];
+  let exportedCount = 0;
+  
+  for (const store of stores) {
+    if (data[store] && data[store].length > 0) {
+      if (store === 'expenseGroups') {
+        const csvData = data[store].map(group => ({
+          name: group.name || 'Untitled',
+          description: group.description || '',
+          currency: group.currency || 'NRs',
+          startDate: group.startDate || '',
+          endDate: group.endDate || '',
+          participants: (group.participants || []).join('; '),
+          expenseCount: (group.expenses || []).length,
+          settled: group.settled ? 'Yes' : 'No'
+        }));
+        exportToCSV(csvData, `${baseFilename}-${store}`);
+      } else {
+        exportToCSV(data[store], `${baseFilename}-${store}`);
+      }
+      exportedCount++;
+    }
+  }
+  
+  if (exportedCount > 0) {
+    showToast(`${exportedCount} CSV files exported successfully!`);
+  } else {
+    showToast('No data to export');
+  }
+}
+
+// Export all as Excel
+async function exportAllAsExcel(data, baseFilename) {
   if (typeof XLSX === 'undefined') {
     showToast('Excel library not loaded. Please refresh the page.');
     return;
@@ -167,7 +202,6 @@ async function exportAllToExcel(data, baseFilename) {
     
     for (const [key, sheetName] of Object.entries(stores)) {
       if (data[key] && data[key].length > 0) {
-        // Special handling for expense groups
         if (key === 'expenseGroups') {
           const flattenedData = data[key].map(group => ({
             name: group.name || 'Untitled',
@@ -175,7 +209,7 @@ async function exportAllToExcel(data, baseFilename) {
             currency: group.currency || 'NRs',
             startDate: group.startDate || '',
             endDate: group.endDate || '',
-            participants: (group.participants || []).join(', '),
+            participants: (group.participants || []).join('; '),
             expenseCount: (group.expenses || []).length,
             settled: group.settled ? 'Yes' : 'No'
           }));
@@ -207,7 +241,6 @@ async function exportAllToExcel(data, baseFilename) {
 // ==================== IMPORT ALL DATA ====================
 
 function importAllDataFormat(format) {
-  // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
     dropdown.classList.remove('show');
   });
@@ -221,7 +254,6 @@ function importAllDataFormat(format) {
   }
 }
 
-// Handle Import File
 async function handleImportFile(event, format) {
   const file = event.target.files[0];
   if (!file) return;
@@ -231,16 +263,13 @@ async function handleImportFile(event, format) {
       const data = await importFromJSON(file);
       
       if (confirmAction('This will replace all existing data. Continue?')) {
-        await db.importData(data);
-        showToast('Data imported successfully!');
-        setTimeout(() => location.reload(), 1000);
+        await importAllFromJSON(data);
       }
     } else if (format === 'csv') {
-      // CSV import - ask which module
       showImportCSVDialog(file);
     } else if (format === 'xlsx') {
       if (confirmAction('Import from Excel will replace existing data. Continue?')) {
-        await importFromExcel(file);
+        await importAllFromExcel(file);
       }
     }
   } catch (error) {
@@ -251,7 +280,171 @@ async function handleImportFile(event, format) {
   event.target.value = '';
 }
 
-// Show CSV Import Dialog
+// Import all from JSON
+async function importAllFromJSON(data) {
+  try {
+    let totalImported = 0;
+
+    // Import each store
+    const stores = ['medicines', 'subscriptions', 'expenseGroups', 'travels', 'insurances', 'bills', 'vehicles', 'pets', 'customCategories', 'customItems'];
+    
+    for (const store of stores) {
+      if (data[store] && Array.isArray(data[store]) && data[store].length > 0) {
+        await db.clear(store);
+        
+        if (store === 'expenseGroups') {
+          // Special handling for expense groups
+          for (const group of data[store]) {
+            if (!group.name || !group.name.trim()) continue;
+            
+            const cleanGroup = {
+              name: group.name.trim(),
+              description: group.description || '',
+              currency: group.currency || 'NRs',
+              startDate: group.startDate || new Date().toISOString().split('T')[0],
+              endDate: group.endDate || new Date().toISOString().split('T')[0],
+              participants: Array.isArray(group.participants) ? group.participants : [],
+              expenses: Array.isArray(group.expenses) ? group.expenses.map(exp => ({
+                id: exp.id || generateId(),
+                date: exp.date || new Date().toISOString().split('T')[0],
+                description: exp.description || '',
+                amount: parseFloat(exp.amount) || 0,
+                paidBy: exp.paidBy || '',
+                splitType: exp.splitType || 'equal',
+                splits: exp.splits || {},
+                notes: exp.notes || ''
+              })) : [],
+              settled: group.settled || false
+            };
+            
+            if (cleanGroup.participants.length > 0) {
+              await db.add(store, cleanGroup);
+              totalImported++;
+            }
+          }
+        } else {
+          // Regular modules
+          for (const item of data[store]) {
+            const cleanItem = {};
+            Object.keys(item).forEach(key => {
+              if (key !== 'id' && item[key] !== null && item[key] !== undefined) {
+                cleanItem[key] = item[key];
+              }
+            });
+            
+            if (Object.keys(cleanItem).length > 0) {
+              await db.add(store, cleanItem);
+              totalImported++;
+            }
+          }
+        }
+      }
+    }
+
+    showToast(`Successfully imported ${totalImported} items!`);
+    setTimeout(() => location.reload(), 1000);
+  } catch (error) {
+    console.error('JSON import error:', error);
+    showToast('Error importing JSON: ' + error.message);
+  }
+}
+
+// Import all from Excel
+async function importAllFromExcel(file) {
+  if (typeof XLSX === 'undefined') {
+    showToast('Excel library not loaded');
+    return;
+  }
+
+  try {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        const storeMapping = {
+          'Medicines': 'medicines',
+          'Subscriptions': 'subscriptions',
+          'Expense Groups': 'expenseGroups',
+          'Travels': 'travels',
+          'Insurances': 'insurances',
+          'Bills': 'bills',
+          'Vehicles': 'vehicles',
+          'Pets': 'pets',
+          'Custom Categories': 'customCategories',
+          'Custom Items': 'customItems'
+        };
+        
+        let totalImported = 0;
+        
+        for (const sheetName of workbook.SheetNames) {
+          const storeName = storeMapping[sheetName];
+          if (!storeName) continue;
+          
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+          
+          if (jsonData.length === 0) continue;
+          
+          await db.clear(storeName);
+          
+          if (storeName === 'expenseGroups') {
+            for (const item of jsonData) {
+              if (!item.name || item.name.trim() === '') continue;
+              
+              const cleanGroup = {
+                name: item.name.trim(),
+                description: item.description || '',
+                currency: item.currency || 'NRs',
+                startDate: item.startDate || new Date().toISOString().split('T')[0],
+                endDate: item.endDate || new Date().toISOString().split('T')[0],
+                participants: item.participants ? 
+                  (typeof item.participants === 'string' ? 
+                    item.participants.split(';').map(p => p.trim()).filter(p => p) : 
+                    []) : [],
+                expenses: [],
+                settled: item.settled === 'Yes' || item.settled === true
+              };
+              
+              if (cleanGroup.participants.length > 0) {
+                await db.add(storeName, cleanGroup);
+                totalImported++;
+              }
+            }
+          } else {
+            for (const item of jsonData) {
+              const cleanItem = {};
+              Object.keys(item).forEach(key => {
+                if (key !== 'id' && item[key] !== null && item[key] !== undefined && item[key] !== '') {
+                  cleanItem[key] = item[key];
+                }
+              });
+              
+              if (Object.keys(cleanItem).length > 0) {
+                await db.add(storeName, cleanItem);
+                totalImported++;
+              }
+            }
+          }
+        }
+        
+        showToast(`Excel imported successfully! ${totalImported} items`);
+        setTimeout(() => location.reload(), 1000);
+      } catch (error) {
+        console.error('Excel read error:', error);
+        showToast('Error reading Excel file: ' + error.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } catch (error) {
+    console.error('Excel import error:', error);
+    showToast('Error importing Excel: ' + error.message);
+  }
+}
+
+// ==================== CSV IMPORT ====================
+
 function showImportCSVDialog(file) {
   const modalContent = `
     <div class="form-group">
@@ -276,12 +469,9 @@ function showImportCSVDialog(file) {
   `;
   
   openModal('Import CSV File', modalContent);
-  
-  // Store file reference
   window.pendingCSVFile = file;
 }
 
-// Execute CSV Import
 async function executeCSVImport() {
   const module = document.getElementById('csvImportModule').value;
   const file = window.pendingCSVFile;
@@ -294,18 +484,9 @@ async function executeCSVImport() {
   try {
     const data = await importFromCSV(file);
     
-    // Filter out empty rows
     const validData = data.filter(item => {
       if (!item || typeof item !== 'object') return false;
-      
-      const keys = Object.keys(item);
-      if (keys.length === 0) return false;
-      
-      // Check if row has meaningful data
-      return keys.some(key => {
-        const value = item[key];
-        return key !== 'id' && value !== null && value !== undefined && value !== '';
-      });
+      return Object.keys(item).some(key => key !== 'id' && item[key] !== null && item[key] !== undefined && item[key] !== '');
     });
     
     if (validData.length === 0) {
@@ -313,39 +494,35 @@ async function executeCSVImport() {
       return;
     }
     
-    if (confirmAction(`Import ${validData.length} items into ${module}? This will replace existing data.`)) {
+    if (confirmAction(`Import ${validData.length} items into ${module}?`)) {
       await db.clear(module);
       
       let importedCount = 0;
       
-      // Special handling for expense groups
       if (module === 'expenseGroups') {
         for (const item of validData) {
           if (!item.name || item.name.trim() === '') continue;
           
-          const expenseGroup = {
+          const cleanGroup = {
             name: item.name.trim(),
             description: item.description || '',
             currency: item.currency || 'NRs',
             startDate: item.startDate || new Date().toISOString().split('T')[0],
             endDate: item.endDate || new Date().toISOString().split('T')[0],
             participants: item.participants ? 
-              (typeof item.participants === 'string' ? 
-                item.participants.split(',').map(p => p.trim()).filter(p => p !== '') : 
-                Array.isArray(item.participants) ? item.participants : []) : [],
+              item.participants.split(';').map(p => p.trim()).filter(p => p) : [],
             expenses: [],
-            settled: item.settled === 'Yes' || item.settled === true || item.settled === 'true'
+            settled: item.settled === 'Yes' || item.settled === true
           };
           
-          if (expenseGroup.participants.length > 0) {
-            await db.add(module, expenseGroup);
+          if (cleanGroup.participants.length > 0) {
+            await db.add(module, cleanGroup);
             importedCount++;
           }
         }
       } else {
         for (const item of validData) {
           const cleanItem = {};
-          
           Object.keys(item).forEach(key => {
             if (key !== 'id' && item[key] !== null && item[key] !== undefined && item[key] !== '') {
               cleanItem[key] = item[key];
@@ -362,7 +539,6 @@ async function executeCSVImport() {
       showToast(`${importedCount} items imported successfully!`);
       closeModal();
       
-      // Reload appropriate module
       const moduleLoaders = {
         'medicines': loadMedicines,
         'subscriptions': loadSubscriptions,
@@ -375,20 +551,7 @@ async function executeCSVImport() {
       };
       
       if (moduleLoaders[module]) {
-        setTimeout(() => {
-          const moduleNames = {
-            'medicines': 'medicine',
-            'subscriptions': 'subscription',
-            'expenseGroups': 'expense',
-            'travels': 'travel',
-            'insurances': 'insurance',
-            'bills': 'bill',
-            'vehicles': 'vehicle',
-            'pets': 'pet'
-          };
-          showModule(moduleNames[module] || module);
-          moduleLoaders[module]();
-        }, 500);
+        setTimeout(() => moduleLoaders[module](), 500);
       }
     }
   } catch (error) {
@@ -398,235 +561,9 @@ async function executeCSVImport() {
   window.pendingCSVFile = null;
 }
 
-// Import from Excel (multi-sheet) - FIXED TO AVOID BLANK ENTRIES
-async function importFromExcel(file) {
-  if (typeof XLSX === 'undefined') {
-    showToast('Excel library not loaded');
-    return;
-  }
-
-  try {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        
-        // Mapping of sheet names to store names
-        const storeMapping = {
-          'Medicines': 'medicines',
-          'Subscriptions': 'subscriptions',
-          'Expense Groups': 'expenseGroups',
-          'Travels': 'travels',
-          'Insurances': 'insurances',
-          'Bills': 'bills',
-          'Vehicles': 'vehicles',
-          'Pets': 'pets',
-          'Custom Categories': 'customCategories',
-          'Custom Items': 'customItems'
-        };
-        
-        let importedSheets = 0;
-        let totalItems = 0;
-        
-        for (const sheetName of workbook.SheetNames) {
-          // Skip detail/reference sheets
-          if (sheetName.startsWith('Detail_') || 
-              sheetName.includes('Summary') || 
-              sheetName.includes('Settlement') || 
-              sheetName.includes('Split Details')) {
-            continue;
-          }
-          
-          const storeName = storeMapping[sheetName];
-          
-          // Only process sheets that match our store mapping
-          if (storeName) {
-            const worksheet = workbook.Sheets[sheetName];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet);
-            
-            // Filter out empty rows
-            const validData = jsonData.filter(item => {
-              if (!item || typeof item !== 'object') return false;
-              
-              // Check if row has any meaningful data
-              const keys = Object.keys(item);
-              if (keys.length === 0) return false;
-              
-              // Check if all values are empty/null/undefined
-              const hasData = keys.some(key => {
-                const value = item[key];
-                return value !== null && value !== undefined && value !== '' && 
-                       !(typeof value === 'string' && value.trim() === '');
-              });
-              
-              return hasData;
-            });
-            
-            if (validData.length > 0) {
-              await db.clear(storeName);
-              
-              // Special handling for expense groups
-              if (storeName === 'expenseGroups') {
-                for (const item of validData) {
-                  // Only import if it has a name (required field)
-                  if (!item.name || item.name.trim() === '') continue;
-                  
-                  const expenseGroup = {
-                    name: item.name.trim(),
-                    description: item.description || '',
-                    currency: item.currency || 'NRs',
-                    startDate: item.startDate || new Date().toISOString().split('T')[0],
-                    endDate: item.endDate || new Date().toISOString().split('T')[0],
-                    participants: item.participants ? 
-                      (typeof item.participants === 'string' ? 
-                        item.participants.split(',').map(p => p.trim()).filter(p => p !== '') : 
-                        Array.isArray(item.participants) ? item.participants : []) : [],
-                    expenses: [],
-                    settled: item.settled === 'Yes' || item.settled === true || item.settled === 'true'
-                  };
-                  
-                  // Only add if has participants
-                  if (expenseGroup.participants.length > 0) {
-                    await db.add(storeName, expenseGroup);
-                    totalItems++;
-                  }
-                }
-              } else {
-                // For other modules
-                for (const item of validData) {
-                  // Clean the item - remove undefined/null values
-                  const cleanItem = {};
-                  let hasRequiredData = false;
-                  
-                  Object.keys(item).forEach(key => {
-                    const value = item[key];
-                    if (value !== null && value !== undefined && value !== '' && 
-                        !(typeof value === 'string' && value.trim() === '')) {
-                      cleanItem[key] = value;
-                      if (key !== 'id') hasRequiredData = true;
-                    }
-                  });
-                  
-                  if (hasRequiredData) {
-                    delete cleanItem.id; // Let autoincrement handle IDs
-                    await db.add(storeName, cleanItem);
-                    totalItems++;
-                  }
-                }
-              }
-              importedSheets++;
-            }
-          }
-        }
-        
-        if (totalItems === 0) {
-          showToast('No valid data found in Excel file');
-          return;
-        }
-        
-        showToast(`Excel imported successfully! ${totalItems} items from ${importedSheets} modules`);
-        setTimeout(() => location.reload(), 1000);
-      } catch (error) {
-        console.error('Excel read error:', error);
-        showToast('Error reading Excel file: ' + error.message);
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  } catch (error) {
-    console.error('Excel import error:', error);
-    showToast('Error importing Excel: ' + error.message);
-  }
-}
-
-// Import from XLSX for individual modules
-async function importFromXLSX(file) {
-  if (typeof XLSX === 'undefined') {
-    showToast('Excel library not loaded');
-    return [];
-  }
-
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-        
-        // Take only the first sheet for individual module import
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        
-        // Filter out empty rows
-        const validData = jsonData.filter(item => {
-          if (!item || typeof item !== 'object') return false;
-          
-          const keys = Object.keys(item);
-          if (keys.length === 0) return false;
-          
-          const hasData = keys.some(key => {
-            const value = item[key];
-            return value !== null && value !== undefined && value !== '' && 
-                   !(typeof value === 'string' && value.trim() === '');
-          });
-          
-          return hasData;
-        });
-        
-        resolve(validData);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    
-    reader.onerror = (error) => reject(error);
-    reader.readAsArrayBuffer(file);
-  });
-}
-
-// ==================== CLEAR ALL DATA ====================
-
-async function clearAllData() {
-  if (!confirmAction('Are you sure you want to delete ALL data? This cannot be undone!')) {
-    return;
-  }
-
-  if (!confirmAction('This will permanently delete all medicines, subscriptions, expenses, travels, insurance, bills, vehicles, pets, and custom data. Continue?')) {
-    return;
-  }
-
-  try {
-    const stores = [
-      'medicines',
-      'subscriptions',
-      'expenseGroups',
-      'travels',
-      'insurances',
-      'bills',
-      'vehicles',
-      'pets',
-      'customCategories',
-      'customItems'
-    ];
-    
-    for (const store of stores) {
-      await db.clear(store);
-    }
-    
-    showToast('All data cleared successfully!');
-    setTimeout(() => location.reload(), 1000);
-  } catch (error) {
-    showToast('Error clearing data: ' + error.message);
-  }
-}
-
 // ==================== MODULE EXPORT/IMPORT ====================
 
-// Export Module Data
 async function exportModuleData(storeName, moduleName, format) {
-  // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
     dropdown.classList.remove('show');
   });
@@ -638,9 +575,8 @@ async function exportModuleData(storeName, moduleName, format) {
       return;
     }
 
-    // Special handling for expense groups
     if (storeName === 'expenseGroups') {
-      exportAllExpenseGroups(data, format);
+      exportExpenseGroupsModule(data, format);
       return;
     }
 
@@ -659,138 +595,83 @@ async function exportModuleData(storeName, moduleName, format) {
         exportToXLSX(data, baseFilename);
         showToast(`${moduleName} exported as Excel!`);
         break;
-      default:
-        showToast('Invalid format');
     }
   } catch (error) {
     showToast('Error exporting: ' + error.message);
   }
 }
 
-// Export All Expense Groups - ENHANCED
-async function exportAllExpenseGroups(groups, format) {
-  if (typeof XLSX === 'undefined' && format === 'xlsx') {
-    showToast('Excel library not loaded');
-    return;
-  }
-
-  if (format === 'xlsx') {
-    // Create a SINGLE summary sheet with all groups for easy re-import
+// Export expense groups module
+function exportExpenseGroupsModule(groups, format) {
+  if (format === 'json') {
+    const exportData = groups.map(group => ({
+      name: group.name,
+      description: group.description || '',
+      currency: group.currency || 'NRs',
+      startDate: group.startDate,
+      endDate: group.endDate,
+      participants: group.participants || [],
+      expenses: (group.expenses || []).map(exp => ({
+        id: exp.id,
+        date: exp.date,
+        description: exp.description,
+        amount: exp.amount || 0,
+        paidBy: exp.paidBy,
+        splitType: exp.splitType,
+        splits: exp.splits || {},
+        notes: exp.notes || ''
+      })),
+      settled: group.settled || false
+    }));
+    
+    exportToJSON(exportData, 'ExpenseGroups_Export');
+    showToast(`${groups.length} expense groups exported as JSON!`);
+    
+  } else if (format === 'csv') {
+    const csvData = groups.map(group => ({
+      name: group.name || 'Untitled',
+      description: group.description || '',
+      currency: group.currency || 'NRs',
+      startDate: group.startDate || '',
+      endDate: group.endDate || '',
+      participants: (group.participants || []).join('; '),
+      expenseCount: (group.expenses || []).length,
+      settled: group.settled ? 'Yes' : 'No'
+    }));
+    
+    exportToCSV(csvData, 'ExpenseGroups_Export');
+    showToast(`${groups.length} expense groups exported as CSV!`);
+    
+  } else if (format === 'xlsx') {
+    if (typeof XLSX === 'undefined') {
+      showToast('Excel library not loaded');
+      return;
+    }
+    
     const wb = XLSX.utils.book_new();
     
-    // Main sheet with all groups (importable)
-    const summaryData = groups.map(group => {
-      const participants = group.participants || [];
-      const expenses = group.expenses || [];
-      
-      return {
-        name: group.name || 'Untitled',
-        description: group.description || '',
-        currency: group.currency || 'NRs',
-        startDate: group.startDate || '',
-        endDate: group.endDate || '',
-        participants: participants.join(', '),
-        expenseCount: expenses.length,
-        totalAmount: expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0),
-        settled: group.settled ? 'Yes' : 'No'
-      };
-    });
+    const summaryData = groups.map(group => ({
+      name: group.name || 'Untitled',
+      description: group.description || '',
+      currency: group.currency || 'NRs',
+      startDate: group.startDate || '',
+      endDate: group.endDate || '',
+      participants: (group.participants || []).join('; '),
+      expenseCount: (group.expenses || []).length,
+      settled: group.settled ? 'Yes' : 'No'
+    }));
     
-    const wsSummary = XLSX.utils.json_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, wsSummary, 'Expense Groups');
-
-    // Add detailed sheets for each group (for reference only, marked with prefix)
-    groups.forEach((group, index) => {
-      const participants = group.participants || [];
-      const expenses = group.expenses || [];
-      
-      // Expense details sheet
-      const expenseData = [
-        [group.name || 'Untitled Group'],
-        ['Period:', `${formatDate(group.startDate)} to ${formatDate(group.endDate)}`],
-        ['Participants:', participants.join(', ')],
-        ['Currency:', group.currency || 'NRs'],
-        [''],
-        ['Date', 'Description', 'Amount', 'Paid By', 'Split Type', 'Notes']
-      ];
-
-      expenses.forEach(exp => {
-        expenseData.push([
-          exp.date || '',
-          exp.description || '',
-          exp.amount || 0,
-          exp.paidBy || '',
-          exp.splitType === 'equal' ? 'Equal' : 'Custom',
-          exp.notes || ''
-        ]);
-      });
-
-      const ws = XLSX.utils.aoa_to_sheet(expenseData);
-      // Use "Detail_" prefix to mark as non-importable reference sheet
-      const sheetName = `Detail_${(group.name || 'Group').substring(0, 20)}_${index + 1}`;
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    });
-
+    const ws = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, ws, 'Expense Groups');
+    
     const filename = `ExpenseGroups_Export_${getTimestamp()}.xlsx`;
     XLSX.writeFile(wb, filename);
     showToast(`${groups.length} expense groups exported to Excel!`);
-
-  } else if (format === 'csv') {
-    // Export summary CSV
-    const csvData = groups.map(group => {
-      const participants = group.participants || [];
-      const expenses = group.expenses || [];
-      
-      return {
-        name: group.name || 'Untitled',
-        description: group.description || '',
-        currency: group.currency || 'NRs',
-        startDate: group.startDate || '',
-        endDate: group.endDate || '',
-        participants: participants.join(', '),
-        expenseCount: expenses.length,
-        totalAmount: expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0),
-        settled: group.settled ? 'Yes' : 'No'
-      };
-    });
-    
-    exportToCSV(csvData, 'ExpenseGroups_Summary');
-    showToast(`${groups.length} expense groups exported as CSV!`);
-
-  } else if (format === 'json') {
-    const allData = groups.map(group => {
-      const participants = group.participants || [];
-      const expenses = group.expenses || [];
-      
-      return {
-        name: group.name,
-        description: group.description || '',
-        startDate: group.startDate,
-        endDate: group.endDate,
-        participants: participants,
-        expenses: expenses.map(exp => ({
-          id: exp.id,
-          date: exp.date,
-          description: exp.description,
-          amount: exp.amount || 0,
-          paidBy: exp.paidBy,
-          splitType: exp.splitType,
-          splits: exp.splits || {},
-          notes: exp.notes || ''
-        })),
-        currency: group.currency || 'NRs',
-        settled: group.settled || false
-      };
-    });
-    
-    exportToJSON(allData, `ExpenseGroups_All`);
-    showToast('All expense groups exported as JSON!');
   }
 }
 
-// Individual Module Import - ENHANCED VALIDATION
+// Import module data
 function importModuleData(storeName, format) {
-  // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
     dropdown.classList.remove('show');
   });
@@ -811,77 +692,55 @@ function importModuleData(storeName, format) {
       } else if (format === 'csv') {
         data = await importFromCSV(file);
       } else if (format === 'xlsx') {
-        data = await importFromXLSX(file);
+        data = await importModuleFromXLSX(file);
       }
       
-      // Filter out empty/invalid entries
-      const validData = data.filter(item => {
-        if (!item || typeof item !== 'object') return false;
-        
-        const keys = Object.keys(item);
-        if (keys.length === 0) return false;
-        
-        // For expense groups, must have name
-        if (storeName === 'expenseGroups') {
-          return item.name && item.name.trim() !== '';
-        }
-        
-        // For other modules, must have some data
-        return keys.some(key => {
-          const value = item[key];
-          return key !== 'id' && value !== null && value !== undefined && value !== '' &&
-                 !(typeof value === 'string' && value.trim() === '');
-        });
-      });
-      
-      if (validData.length === 0) {
+      if (!Array.isArray(data) || data.length === 0) {
         showToast('No valid data found in file');
         return;
       }
       
-      if (confirmAction(`Import ${validData.length} items? This will replace existing data in this module.`)) {
+      if (confirmAction(`Import ${data.length} items? This will replace existing data.`)) {
         await db.clear(storeName);
         
         let importedCount = 0;
         
-        // Special handling for expense groups
         if (storeName === 'expenseGroups') {
-          for (const item of validData) {
-            const expenseGroup = {
+          for (const item of data) {
+            if (!item.name || item.name.trim() === '') continue;
+            
+            const cleanGroup = {
               name: item.name.trim(),
               description: item.description || '',
               currency: item.currency || 'NRs',
               startDate: item.startDate || new Date().toISOString().split('T')[0],
               endDate: item.endDate || new Date().toISOString().split('T')[0],
-              participants: item.participants ? 
+              participants: Array.isArray(item.participants) ? item.participants : 
                 (typeof item.participants === 'string' ? 
-                  item.participants.split(',').map(p => p.trim()).filter(p => p !== '') : 
-                  Array.isArray(item.participants) ? item.participants : []) : [],
+                  item.participants.split(';').map(p => p.trim()).filter(p => p) : []),
               expenses: Array.isArray(item.expenses) ? item.expenses.map(exp => ({
                 id: exp.id || generateId(),
+                date: exp.date || new Date().toISOString().split('T')[0],
                 description: exp.description || '',
                 amount: parseFloat(exp.amount) || 0,
-                date: exp.date || new Date().toISOString().split('T')[0],
                 paidBy: exp.paidBy || '',
                 splitType: exp.splitType || 'equal',
                 splits: exp.splits || {},
                 notes: exp.notes || ''
               })) : [],
-              settled: item.settled === 'Yes' || item.settled === true || item.settled === 'true' || false
+              settled: item.settled === 'Yes' || item.settled === true || false
             };
             
-            if (expenseGroup.participants.length > 0) {
-              await db.add(storeName, expenseGroup);
+            if (cleanGroup.participants.length > 0) {
+              await db.add(storeName, cleanGroup);
               importedCount++;
             }
           }
         } else {
-          for (const item of validData) {
+          for (const item of data) {
             const cleanItem = {};
-            
             Object.keys(item).forEach(key => {
-              if (key !== 'id' && item[key] !== null && item[key] !== undefined && item[key] !== '' &&
-                  !(typeof item[key] === 'string' && item[key].trim() === '')) {
+              if (key !== 'id' && item[key] !== null && item[key] !== undefined && item[key] !== '') {
                 cleanItem[key] = item[key];
               }
             });
@@ -895,7 +754,6 @@ function importModuleData(storeName, format) {
         
         showToast(`${importedCount} items imported successfully!`);
         
-        // Reload the current module
         const moduleLoaders = {
           'medicines': loadMedicines,
           'subscriptions': loadSubscriptions,
@@ -920,11 +778,36 @@ function importModuleData(storeName, format) {
   input.click();
 }
 
-// ==================== CUSTOM MODULE EXPORT/IMPORT ====================
+// Import module from XLSX
+async function importModuleFromXLSX(file) {
+  if (typeof XLSX === 'undefined') {
+    throw new Error('Excel library not loaded');
+  }
 
-// Export Custom Data
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        resolve(jsonData);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    
+    reader.onerror = (error) => reject(error);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ==================== CUSTOM DATA ====================
+
 async function exportCustomData(format) {
-  // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
     dropdown.classList.remove('show');
   });
@@ -949,7 +832,7 @@ async function exportCustomData(format) {
       case 'csv':
         if (categories.length > 0) exportToCSV(categories, `${baseFilename}-Categories`);
         if (items.length > 0) exportToCSV(items, `${baseFilename}-Items`);
-        showToast('Custom data exported as separate CSV files!');
+        showToast('Custom data exported as CSV files!');
         break;
       case 'xlsx':
         if (typeof XLSX !== 'undefined') {
@@ -964,9 +847,7 @@ async function exportCustomData(format) {
           }
           const filename = `${baseFilename}_${getTimestamp()}.xlsx`;
           XLSX.writeFile(wb, filename);
-          showToast('Excel file exported successfully!');
-        } else {
-          showToast('Excel library not loaded');
+          showToast('Custom data exported to Excel!');
         }
         break;
     }
@@ -975,9 +856,7 @@ async function exportCustomData(format) {
   }
 }
 
-// Import Custom Data
 async function importCustomData(format) {
-  // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
     dropdown.classList.remove('show');
   });
@@ -993,7 +872,7 @@ async function importCustomData(format) {
     try {
       if (format === 'json') {
         const data = await importFromJSON(file);
-        if (confirmAction('Import custom data? This will replace existing custom categories and items.')) {
+        if (confirmAction('Import custom data? This will replace existing custom data.')) {
           let importedCount = 0;
           
           if (data.categories && Array.isArray(data.categories)) {
@@ -1012,11 +891,11 @@ async function importCustomData(format) {
               importedCount++;
             }
           }
-          showToast(`${importedCount} custom items imported successfully!`);
+          showToast(`${importedCount} custom items imported!`);
           loadCustomCategories();
         }
       } else {
-        showToast('CSV/Excel import for custom data: Please use JSON format');
+        showToast('Please use JSON format for custom data import');
       }
     } catch (error) {
       showToast('Error importing: ' + error.message);
@@ -1024,4 +903,24 @@ async function importCustomData(format) {
   };
   
   input.click();
+}
+
+// ==================== CLEAR DATA ====================
+
+async function clearAllData() {
+  if (!confirmAction('Delete ALL data? This cannot be undone!')) return;
+  if (!confirmAction('This will permanently delete everything. Continue?')) return;
+
+  try {
+    const stores = ['medicines', 'subscriptions', 'expenseGroups', 'travels', 'insurances', 'bills', 'vehicles', 'pets', 'customCategories', 'customItems'];
+    
+    for (const store of stores) {
+      await db.clear(store);
+    }
+    
+    showToast('All data cleared successfully!');
+    setTimeout(() => location.reload(), 1000);
+  } catch (error) {
+    showToast('Error clearing data: ' + error.message);
+  }
 }
