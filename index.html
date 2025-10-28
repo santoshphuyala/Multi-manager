@@ -160,32 +160,33 @@
                     </div>
                 </div>
 
-                <div class="quick-actions">
-                    <h3>Quick Actions</h3>
-                    <div class="action-buttons">
-                        <div class="dropdown">
-                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('dashboardImport')">
-                                📥 Import Data ▼
-                            </button>
-                            <div id="dashboardImport" class="dropdown-content">
-                                <a href="#" onclick="importAllDataFormat('json')">Import JSON</a>
-                                <a href="#" onclick="importAllDataFormat('xlsx')">Import Excel</a>
-                            </div>
-                        </div>
-                        <div class="dropdown">
-                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('dashboardExport')">
-                                📤 Export Data ▼
-                            </button>
-                            <div id="dashboardExport" class="dropdown-content">
-                                <a href="#" onclick="exportAllDataFormat('json')">Export as JSON</a>
-                                <a href="#" onclick="exportAllDataFormat('csv')">Export as CSV</a>
-                                <a href="#" onclick="exportAllDataFormat('xlsx')">Export as Excel</a>
-                            </div>
-                        </div>
-                        <button onclick="exportAllDataFormat('json')" class="btn btn-success">💾 Backup All</button>
-                    </div>
-                </div>
-            </section>
+                <!-- REPLACE Quick Actions section in Dashboard -->
+<div class="quick-actions">
+    <h3>Quick Actions</h3>
+    <div class="action-buttons">
+        <div class="dropdown">
+            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('dashboardImport')">
+                📥 Import Data ▼
+            </button>
+            <div id="dashboardImport" class="dropdown-content">
+                <a href="#" onclick="event.preventDefault(); importAllDataFormat('json')">Import JSON</a>
+                <a href="#" onclick="event.preventDefault(); importAllDataFormat('csv')">Import CSV</a>
+                <a href="#" onclick="event.preventDefault(); importAllDataFormat('xlsx')">Import Excel</a>
+            </div>
+        </div>
+        <div class="dropdown">
+            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('dashboardExport')">
+                📤 Export Data ▼
+            </button>
+            <div id="dashboardExport" class="dropdown-content">
+                <a href="#" onclick="event.preventDefault(); exportAllDataFormat('json')">Export as JSON</a>
+                <a href="#" onclick="event.preventDefault(); exportAllDataFormat('csv')">Export as CSV</a>
+                <a href="#" onclick="event.preventDefault(); exportAllDataFormat('xlsx')">Export as Excel</a>
+            </div>
+        </div>
+        <button onclick="event.preventDefault(); exportAllDataFormat('json')" class="btn btn-success">💾 Backup All</button>
+    </div>
+</div>
 
             <!-- Medicine Module -->
             <section id="medicineModule" class="module">
