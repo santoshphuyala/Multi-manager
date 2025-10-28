@@ -94,7 +94,7 @@ async function exportAllDataFormat(format) {
         
       case 'csv':
         // Export each module as separate CSV
-        const stores = ['medicines', 'subscriptions', 'expenses', 'travels', 'insurances', 'bills', 'vehicles', 'pets', 'customCategories', 'customItems'];
+        const stores = ['medicines', 'subscriptions', 'expenseGroups', 'travels', 'insurances', 'bills', 'vehicles', 'pets', 'customCategories', 'customItems'];
         let exportedCount = 0;
         
         for (const store of stores) {
@@ -139,7 +139,7 @@ async function exportAllToExcel(data, baseFilename) {
     const stores = {
       'medicines': 'Medicines',
       'subscriptions': 'Subscriptions',
-      'expenses': 'Expenses',
+      'expenseGroups': 'Expense Groups',
       'travels': 'Travels',
       'insurances': 'Insurances',
       'bills': 'Bills',
@@ -151,9 +151,25 @@ async function exportAllToExcel(data, baseFilename) {
     
     for (const [key, sheetName] of Object.entries(stores)) {
       if (data[key] && data[key].length > 0) {
-        const flattenedData = data[key].map(item => flattenObject(item));
-        const ws = XLSX.utils.json_to_sheet(flattenedData);
-        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        // Special handling for expense groups
+        if (key === 'expenseGroups') {
+          const flattenedData = data[key].map(group => ({
+            name: group.name,
+            description: group.description || '',
+            currency: group.currency || 'NRs',
+            startDate: group.startDate,
+            endDate: group.endDate,
+            participants: (group.participants || []).join(', '),
+            expenseCount: (group.expenses || []).length,
+            settled: group.settled ? 'Yes' : 'No'
+          }));
+          const ws = XLSX.utils.json_to_sheet(flattenedData);
+          XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        } else {
+          const flattenedData = data[key].map(item => flattenObject(item));
+          const ws = XLSX.utils.json_to_sheet(flattenedData);
+          XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        }
         sheetCount++;
       }
     }
@@ -218,7 +234,7 @@ async function handleImportFile(event, format) {
   event.target.value = '';
 }
 
-// Show CSV Import Dialog - NEW
+// Show CSV Import Dialog - FIXED
 function showImportCSVDialog(file) {
   const modalContent = `
     <div class="form-group">
@@ -226,7 +242,7 @@ function showImportCSVDialog(file) {
       <select id="csvImportModule" class="form-control">
         <option value="medicines">Medicines</option>
         <option value="subscriptions">Subscriptions</option>
-        <option value="expenses">Expenses</option>
+        <option value="expenseGroups">Expense Groups</option>
         <option value="travels">Travels</option>
         <option value="insurances">Insurances</option>
         <option value="bills">Bills</option>
@@ -248,7 +264,7 @@ function showImportCSVDialog(file) {
   window.pendingCSVFile = file;
 }
 
-// Execute CSV Import - NEW
+// Execute CSV Import - FIXED
 async function executeCSVImport() {
   const module = document.getElementById('csvImportModule').value;
   const file = window.pendingCSVFile;
@@ -263,10 +279,31 @@ async function executeCSVImport() {
     
     if (confirmAction(`Import ${data.length} items into ${module}? This will replace existing data.`)) {
       await db.clear(module);
-      for (const item of data) {
-        delete item.id;
-        await db.add(module, item);
+      
+      // Special handling for expense groups
+      if (module === 'expenseGroups') {
+        for (const item of data) {
+          // Ensure proper structure
+          const expenseGroup = {
+            name: item.name || 'Untitled Group',
+            description: item.description || '',
+            currency: item.currency || 'NRs',
+            startDate: item.startDate || new Date().toISOString().split('T')[0],
+            endDate: item.endDate || new Date().toISOString().split('T')[0],
+            participants: item.participants ? 
+              (typeof item.participants === 'string' ? item.participants.split(',').map(p => p.trim()) : item.participants) : [],
+            expenses: [],
+            settled: item.settled === 'Yes' || item.settled === true || item.settled === 'true'
+          };
+          await db.add(module, expenseGroup);
+        }
+      } else {
+        for (const item of data) {
+          delete item.id;
+          await db.add(module, item);
+        }
       }
+      
       showToast('CSV data imported successfully!');
       closeModal();
       
@@ -274,7 +311,7 @@ async function executeCSVImport() {
       const moduleLoaders = {
         'medicines': loadMedicines,
         'subscriptions': loadSubscriptions,
-        'expenseGroups': loadExpenses,  // CHANGED from 'expenses'
+        'expenseGroups': loadExpenses,
         'travels': loadTravels,
         'insurances': loadInsurances,
         'bills': loadBills,
@@ -284,7 +321,17 @@ async function executeCSVImport() {
       
       if (moduleLoaders[module]) {
         setTimeout(() => {
-          showModule(module.replace('s', ''));
+          const moduleNames = {
+            'medicines': 'medicine',
+            'subscriptions': 'subscription',
+            'expenseGroups': 'expense',
+            'travels': 'travel',
+            'insurances': 'insurance',
+            'bills': 'bill',
+            'vehicles': 'vehicle',
+            'pets': 'pet'
+          };
+          showModule(moduleNames[module] || module);
           moduleLoaders[module]();
         }, 500);
       }
@@ -313,7 +360,7 @@ async function importFromExcel(file) {
         const storeMapping = {
           'Medicines': 'medicines',
           'Subscriptions': 'subscriptions',
-          'Expenses': 'expenses',
+          'Expense Groups': 'expenseGroups',
           'Travels': 'travels',
           'Insurances': 'insurances',
           'Bills': 'bills',
@@ -333,9 +380,28 @@ async function importFromExcel(file) {
             
             if (jsonData.length > 0) {
               await db.clear(storeName);
-              for (const item of jsonData) {
-                delete item.id;
-                await db.add(storeName, item);
+              
+              // Special handling for expense groups
+              if (storeName === 'expenseGroups') {
+                for (const item of jsonData) {
+                  const expenseGroup = {
+                    name: item.name || 'Untitled Group',
+                    description: item.description || '',
+                    currency: item.currency || 'NRs',
+                    startDate: item.startDate || new Date().toISOString().split('T')[0],
+                    endDate: item.endDate || new Date().toISOString().split('T')[0],
+                    participants: item.participants ? 
+                      (typeof item.participants === 'string' ? item.participants.split(',').map(p => p.trim()) : []) : [],
+                    expenses: [],
+                    settled: item.settled === 'Yes' || item.settled === true || item.settled === 'true'
+                  };
+                  await db.add(storeName, expenseGroup);
+                }
+              } else {
+                for (const item of jsonData) {
+                  delete item.id;
+                  await db.add(storeName, item);
+                }
               }
               importedSheets++;
             }
@@ -369,7 +435,7 @@ async function clearAllData() {
     const stores = [
       'medicines',
       'subscriptions',
-      'expenses',
+      'expenseGroups',
       'travels',
       'insurances',
       'bills',
@@ -390,8 +456,7 @@ async function clearAllData() {
   }
 }
 
-// Find exportModuleData function and update it:
-
+// Export Module Data - FIXED
 async function exportModuleData(storeName, moduleName, format) {
   // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
@@ -431,7 +496,7 @@ async function exportModuleData(storeName, moduleName, format) {
   }
 }
 
-// Add this new function to settings.js:
+// Export All Expense Groups - FIXED WITH NULL CHECKS
 async function exportAllExpenseGroups(groups, format) {
   if (typeof XLSX === 'undefined' && format === 'xlsx') {
     showToast('Excel library not loaded');
@@ -443,28 +508,32 @@ async function exportAllExpenseGroups(groups, format) {
     const wb = XLSX.utils.book_new();
 
     groups.forEach((group, index) => {
+      // Ensure arrays exist
+      const participants = group.participants || [];
+      const expenses = group.expenses || [];
+      
       // Summary sheet for each group
       const summaryData = [
-        [group.name],
+        [group.name || 'Untitled Group'],
         ['Period:', `${formatDate(group.startDate)} to ${formatDate(group.endDate)}`],
-        ['Participants:', group.participants.join(', ')],
-        ['Currency:', group.currency],
+        ['Participants:', participants.join(', ')],
+        ['Currency:', group.currency || 'NRs'],
         [''],
         ['Date', 'Description', 'Amount', 'Paid By', 'Split Type']
       ];
 
-      (group.expenses || []).forEach(exp => {
+      expenses.forEach(exp => {
         summaryData.push([
-          exp.date,
-          exp.description,
-          exp.amount,
-          exp.paidBy,
+          exp.date || '',
+          exp.description || '',
+          exp.amount || 0,
+          exp.paidBy || '',
           exp.splitType === 'equal' ? 'Equal' : 'Custom'
         ]);
       });
 
       const ws = XLSX.utils.aoa_to_sheet(summaryData);
-      const sheetName = `${group.name.substring(0, 25)}_${index + 1}`;
+      const sheetName = `${(group.name || 'Group').substring(0, 25)}_${index + 1}`;
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
     });
 
@@ -473,27 +542,58 @@ async function exportAllExpenseGroups(groups, format) {
     showToast(`${groups.length} expense groups exported to Excel!`);
 
   } else if (format === 'csv') {
-    // Export each group as separate CSV
-    groups.forEach(group => {
-      exportExpenseGroupCSV(group);
+    // Export summary CSV
+    const csvData = groups.map(group => {
+      const participants = group.participants || [];
+      const expenses = group.expenses || [];
+      
+      return {
+        name: group.name || 'Untitled',
+        description: group.description || '',
+        currency: group.currency || 'NRs',
+        startDate: group.startDate || '',
+        endDate: group.endDate || '',
+        participants: participants.join(', '),
+        expenseCount: expenses.length,
+        totalAmount: expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0),
+        settled: group.settled ? 'Yes' : 'No'
+      };
     });
-    showToast(`${groups.length} CSV files exported!`);
+    
+    exportToCSV(csvData, 'ExpenseGroups_Summary');
+    showToast(`Expense groups summary exported as CSV!`);
 
   } else if (format === 'json') {
-    const allData = groups.map(group => ({
-      name: group.name,
-      period: `${group.startDate} to ${group.endDate}`,
-      participants: group.participants,
-      expenses: group.expenses,
-      currency: group.currency,
-      settled: group.settled
-    }));
+    const allData = groups.map(group => {
+      const participants = group.participants || [];
+      const expenses = group.expenses || [];
+      
+      return {
+        name: group.name,
+        description: group.description || '',
+        period: `${group.startDate} to ${group.endDate}`,
+        participants: participants,
+        expenses: expenses.map(exp => ({
+          id: exp.id,
+          date: exp.date,
+          description: exp.description,
+          amount: exp.amount || 0,
+          paidBy: exp.paidBy,
+          splitType: exp.splitType,
+          splits: exp.splits || {},
+          notes: exp.notes || ''
+        })),
+        currency: group.currency || 'NRs',
+        settled: group.settled || false
+      };
+    });
     
     exportToJSON(allData, `ExpenseGroups_All`);
     showToast('All expense groups exported as JSON!');
   }
 }
-// Individual Module Import with Format Selection
+
+// Individual Module Import with Format Selection - FIXED
 function importModuleData(storeName, format) {
   // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
@@ -521,17 +621,46 @@ function importModuleData(storeName, format) {
       
       if (confirmAction(`Import ${data.length} items? This will replace existing data in this module.`)) {
         await db.clear(storeName);
-        for (const item of data) {
-          delete item.id; // Let autoincrement handle IDs
-          await db.add(storeName, item);
+        
+        // Special handling for expense groups
+        if (storeName === 'expenseGroups') {
+          for (const item of data) {
+            const expenseGroup = {
+              name: item.name || 'Untitled Group',
+              description: item.description || '',
+              currency: item.currency || 'NRs',
+              startDate: item.startDate || new Date().toISOString().split('T')[0],
+              endDate: item.endDate || new Date().toISOString().split('T')[0],
+              participants: Array.isArray(item.participants) ? item.participants : 
+                            (typeof item.participants === 'string' ? item.participants.split(',').map(p => p.trim()) : []),
+              expenses: Array.isArray(item.expenses) ? item.expenses.map(exp => ({
+                id: exp.id || generateId(),
+                description: exp.description || '',
+                amount: parseFloat(exp.amount) || 0,
+                date: exp.date || new Date().toISOString().split('T')[0],
+                paidBy: exp.paidBy || '',
+                splitType: exp.splitType || 'equal',
+                splits: exp.splits || {},
+                notes: exp.notes || ''
+              })) : [],
+              settled: item.settled === 'Yes' || item.settled === true || item.settled === 'true' || false
+            };
+            await db.add(storeName, expenseGroup);
+          }
+        } else {
+          for (const item of data) {
+            delete item.id; // Let autoincrement handle IDs
+            await db.add(storeName, item);
+          }
         }
+        
         showToast('Data imported successfully!');
         
         // Reload the current module
         const moduleLoaders = {
           'medicines': loadMedicines,
           'subscriptions': loadSubscriptions,
-          'expenses': loadExpenses,
+          'expenseGroups': loadExpenses,
           'travels': loadTravels,
           'insurances': loadInsurances,
           'bills': loadBills,
@@ -544,6 +673,7 @@ function importModuleData(storeName, format) {
         }
       }
     } catch (error) {
+      console.error('Import error:', error);
       showToast('Error importing: ' + error.message);
     }
   };
@@ -551,7 +681,7 @@ function importModuleData(storeName, format) {
   input.click();
 }
 
-// Custom module export/import
+// Custom module export/import - FIXED
 async function exportCustomData(format) {
   // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
