@@ -1,244 +1,282 @@
-// IndexedDB Database Manager with Migration Support
-class DBManager {
-  constructor() {
-    this.dbName = 'MultiManagerDB';
-    this.version = 2; // UPDATED VERSION for migration
-    this.db = null;
-  }
+// Enhanced Database Module with Proper Error Handling
+const DB_NAME = 'MultiManagerDB';
+const DB_VERSION = 3;
+
+const db = {
+  instance: null,
 
   async init() {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, this.version);
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
 
       request.onerror = () => {
-        console.error('Database error:', request.error);
+        console.error('Database failed to open:', request.error);
         reject(request.error);
       };
 
       request.onsuccess = () => {
-        this.db = request.result;
-        console.log('Database initialized successfully');
-        resolve(this.db);
+        this.instance = request.result;
+        console.log('Database opened successfully');
+        resolve(this.instance);
       };
 
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
-        const oldVersion = event.oldVersion;
 
-        console.log(`Upgrading database from version ${oldVersion} to ${this.version}`);
-
-        // Create all object stores
+        // Create object stores if they don't exist
         const stores = [
           'medicines',
           'subscriptions',
-          'expenses',
-          'expenseGroups',  // NEW STORE
+          'expenseGroups',
           'travels',
           'insurances',
           'bills',
           'vehicles',
           'pets',
           'customCategories',
-          'customItems',
-          'settings'
+          'customItems'
         ];
 
         stores.forEach(storeName => {
           if (!db.objectStoreNames.contains(storeName)) {
-            const store = db.createObjectStore(storeName, { keyPath: 'id', autoIncrement: true });
-            store.createIndex('createdAt', 'createdAt', { unique: false });
+            db.createObjectStore(storeName, { keyPath: 'id', autoIncrement: true });
             console.log(`Created object store: ${storeName}`);
           }
         });
-
-        // Migration: Convert old expenses to expense groups
-        if (oldVersion < 2 && db.objectStoreNames.contains('expenses')) {
-          const transaction = event.target.transaction;
-          const expensesStore = transaction.objectStore('expenses');
-          const expenseGroupsStore = transaction.objectStore('expenseGroups');
-
-          expensesStore.openCursor().onsuccess = (e) => {
-            const cursor = e.target.result;
-            if (cursor) {
-              const oldExpense = cursor.value;
-              
-              // Convert old expense to new group format
-              const newGroup = {
-                name: oldExpense.description || 'Imported Expense',
-                description: oldExpense.notes || '',
-                currency: oldExpense.currency || 'USD',
-                startDate: oldExpense.date || new Date().toISOString().split('T')[0],
-                endDate: oldExpense.date || new Date().toISOString().split('T')[0],
-                participants: oldExpense.participants?.map(p => p.name) || [],
-                expenses: [{
-                  id: generateId(),
-                  description: oldExpense.description || 'Expense',
-                  amount: oldExpense.amount || 0,
-                  date: oldExpense.date || new Date().toISOString().split('T')[0],
-                  paidBy: oldExpense.participants?.[0]?.name || 'Unknown',
-                  splitType: oldExpense.splitType || 'equal',
-                  splits: {},
-                  notes: oldExpense.notes || ''
-                }],
-                settled: oldExpense.settled || false,
-                createdAt: oldExpense.createdAt || new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-              };
-
-              expenseGroupsStore.add(newGroup);
-              console.log('Migrated expense to group:', newGroup.name);
-              
-              cursor.continue();
-            }
-          };
-        }
       };
     });
-  }
+  },
 
   async add(storeName, data) {
-    return new Promise((resolve, reject) => {
-      try {
-        const tx = this.db.transaction(storeName, 'readwrite');
-        const store = tx.objectStore(storeName);
-        data.createdAt = data.createdAt || new Date().toISOString();
-        data.updatedAt = new Date().toISOString();
+    try {
+      if (!this.instance) await this.init();
+      
+      return new Promise((resolve, reject) => {
+        const transaction = this.instance.transaction([storeName], 'readwrite');
+        const store = transaction.objectStore(storeName);
         const request = store.add(data);
 
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
+        request.onsuccess = () => {
+          console.log(`Added to ${storeName}:`, request.result);
+          resolve(request.result);
+        };
 
-  async update(storeName, data) {
-    return new Promise((resolve, reject) => {
-      try {
-        const tx = this.db.transaction(storeName, 'readwrite');
-        const store = tx.objectStore(storeName);
-        data.updatedAt = new Date().toISOString();
-        const request = store.put(data);
+        request.onerror = () => {
+          console.error(`Error adding to ${storeName}:`, request.error);
+          reject(request.error);
+        };
 
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
+        transaction.oncomplete = () => {
+          console.log(`Transaction complete for ${storeName}`);
+        };
 
-  async delete(storeName, id) {
-    return new Promise((resolve, reject) => {
-      try {
-        const tx = this.db.transaction(storeName, 'readwrite');
-        const store = tx.objectStore(storeName);
-        const request = store.delete(id);
-
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
-
-  async get(storeName, id) {
-    return new Promise((resolve, reject) => {
-      try {
-        const tx = this.db.transaction(storeName, 'readonly');
-        const store = tx.objectStore(storeName);
-        const request = store.get(id);
-
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
+        transaction.onerror = () => {
+          console.error(`Transaction error for ${storeName}:`, transaction.error);
+          reject(transaction.error);
+        };
+      });
+    } catch (error) {
+      console.error(`Error in add() for ${storeName}:`, error);
+      throw error;
+    }
+  },
 
   async getAll(storeName) {
-    return new Promise((resolve, reject) => {
-      try {
-        const tx = this.db.transaction(storeName, 'readonly');
-        const store = tx.objectStore(storeName);
+    try {
+      if (!this.instance) await this.init();
+      
+      return new Promise((resolve, reject) => {
+        const transaction = this.instance.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
         const request = store.getAll();
 
-        request.onsuccess = () => resolve(request.result || []);
-        request.onerror = () => reject(request.error);
-      } catch (error) {
-        console.error(`Error getting all from ${storeName}:`, error);
-        reject(error);
-      }
-    });
-  }
+        request.onsuccess = () => {
+          console.log(`Retrieved ${request.result.length} items from ${storeName}`);
+          resolve(request.result);
+        };
+
+        request.onerror = () => {
+          console.error(`Error getting all from ${storeName}:`, request.error);
+          reject(request.error);
+        };
+      });
+    } catch (error) {
+      console.error(`Error in getAll() for ${storeName}:`, error);
+      return [];
+    }
+  },
+
+  async get(storeName, id) {
+    try {
+      if (!this.instance) await this.init();
+      
+      return new Promise((resolve, reject) => {
+        const transaction = this.instance.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.get(parseInt(id));
+
+        request.onsuccess = () => {
+          resolve(request.result);
+        };
+
+        request.onerror = () => {
+          console.error(`Error getting from ${storeName}:`, request.error);
+          reject(request.error);
+        };
+      });
+    } catch (error) {
+      console.error(`Error in get() for ${storeName}:`, error);
+      return null;
+    }
+  },
+
+  async update(storeName, data) {
+    try {
+      if (!this.instance) await this.init();
+      
+      return new Promise((resolve, reject) => {
+        const transaction = this.instance.transaction([storeName], 'readwrite');
+        const store = transaction.objectStore(storeName);
+        const request = store.put(data);
+
+        request.onsuccess = () => {
+          console.log(`Updated in ${storeName}:`, request.result);
+          resolve(request.result);
+        };
+
+        request.onerror = () => {
+          console.error(`Error updating ${storeName}:`, request.error);
+          reject(request.error);
+        };
+      });
+    } catch (error) {
+      console.error(`Error in update() for ${storeName}:`, error);
+      throw error;
+    }
+  },
+
+  async delete(storeName, id) {
+    try {
+      if (!this.instance) await this.init();
+      
+      return new Promise((resolve, reject) => {
+        const transaction = this.instance.transaction([storeName], 'readwrite');
+        const store = transaction.objectStore(storeName);
+        const request = store.delete(parseInt(id));
+
+        request.onsuccess = () => {
+          console.log(`Deleted from ${storeName}:`, id);
+          resolve();
+        };
+
+        request.onerror = () => {
+          console.error(`Error deleting from ${storeName}:`, request.error);
+          reject(request.error);
+        };
+      });
+    } catch (error) {
+      console.error(`Error in delete() for ${storeName}:`, error);
+      throw error;
+    }
+  },
 
   async clear(storeName) {
-    return new Promise((resolve, reject) => {
-      try {
-        const tx = this.db.transaction(storeName, 'readwrite');
-        const store = tx.objectStore(storeName);
+    try {
+      if (!this.instance) await this.init();
+      
+      return new Promise((resolve, reject) => {
+        const transaction = this.instance.transaction([storeName], 'readwrite');
+        const store = transaction.objectStore(storeName);
         const request = store.clear();
 
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
+        request.onsuccess = () => {
+          console.log(`Cleared ${storeName}`);
+          resolve();
+        };
+
+        request.onerror = () => {
+          console.error(`Error clearing ${storeName}:`, request.error);
+          reject(request.error);
+        };
+      });
+    } catch (error) {
+      console.error(`Error in clear() for ${storeName}:`, error);
+      throw error;
+    }
+  },
 
   async exportData() {
-    const data = {};
-    const stores = [
-      'medicines',
-      'subscriptions',
-      'expenses',
-      'expenseGroups',
-      'travels',
-      'insurances',
-      'bills',
-      'vehicles',
-      'pets',
-      'customCategories',
-      'customItems',
-      'settings'
-    ];
+    try {
+      const data = {};
+      const stores = [
+        'medicines',
+        'subscriptions',
+        'expenseGroups',
+        'travels',
+        'insurances',
+        'bills',
+        'vehicles',
+        'pets',
+        'customCategories',
+        'customItems'
+      ];
 
-    for (const store of stores) {
-      try {
+      for (const store of stores) {
         data[store] = await this.getAll(store);
-      } catch (error) {
-        console.error(`Error exporting ${store}:`, error);
-        data[store] = [];
       }
-    }
 
-    return data;
-  }
+      console.log('Exported data:', data);
+      return data;
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      throw error;
+    }
+  },
 
   async importData(data) {
-    for (const [storeName, items] of Object.entries(data)) {
-      if (Array.isArray(items) && items.length > 0) {
-        try {
-          await this.clear(storeName);
-          for (const item of items) {
-            delete item.id;
-            await this.add(storeName, item);
+    try {
+      const stores = [
+        'medicines',
+        'subscriptions',
+        'expenseGroups',
+        'travels',
+        'insurances',
+        'bills',
+        'vehicles',
+        'pets',
+        'customCategories',
+        'customItems'
+      ];
+
+      let totalImported = 0;
+
+      for (const store of stores) {
+        if (data[store] && Array.isArray(data[store])) {
+          await this.clear(store);
+          
+          for (const item of data[store]) {
+            // Remove id to let autoincrement handle it
+            const cleanItem = { ...item };
+            delete cleanItem.id;
+            
+            try {
+              await this.add(store, cleanItem);
+              totalImported++;
+            } catch (err) {
+              console.error(`Error importing item to ${store}:`, err, item);
+            }
           }
-        } catch (error) {
-          console.error(`Error importing ${storeName}:`, error);
         }
       }
+
+      console.log(`Total items imported: ${totalImported}`);
+      return totalImported;
+    } catch (error) {
+      console.error('Error importing data:', error);
+      throw error;
     }
   }
-}
+};
 
-// Helper function for ID generation
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-}
-
-const db = new DBManager();
+// Initialize database when script loads
+db.init().catch(err => console.error('Failed to initialize database:', err));
