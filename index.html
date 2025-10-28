@@ -500,39 +500,42 @@
                         </div>
                     </div>
 
-                    <div class="settings-group">
-                        <h3>Data Management</h3>
-                        <div class="setting-item">
-                            <label>Export All Data:</label>
-                            <div class="dropdown">
-                                <button class="btn btn-primary dropdown-btn" onclick="toggleDropdown('settingsExport')">
-                                    📤 Export All Data ▼
-                                </button>
-                                <div id="settingsExport" class="dropdown-content">
-                                    <a href="#" onclick="exportAllDataFormat('json')">Export as JSON</a>
-                                    <a href="#" onclick="exportAllDataFormat('csv')">Export as CSV (All Modules)</a>
-                                    <a href="#" onclick="exportAllDataFormat('xlsx')">Export as Excel</a>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="setting-item">
-                            <label>Import Data:</label>
-                            <div class="dropdown">
-                                <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('settingsImport')">
-                                    📥 Import Data ▼
-                                </button>
-                                <div id="settingsImport" class="dropdown-content">
-                                    <a href="#" onclick="importAllDataFormat('json')">Import JSON</a>
-                                    <a href="#" onclick="importAllDataFormat('xlsx')">Import Excel</a>
-                                </div>
-                            </div>
-                            <input type="file" id="importFileJSON" accept=".json" style="display:none" onchange="handleImportFile(event, 'json')">
-                            <input type="file" id="importFileXLSX" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(event, 'xlsx')">
-                        </div>
-                        <div class="setting-item">
-                            <button onclick="clearAllData()" class="btn btn-danger">🗑️ Clear All Data</button>
-                        </div>
-                    </div>
+                    <!-- REPLACE THIS SECTION IN SETTINGS MODULE -->
+<div class="settings-group">
+    <h3>Data Management</h3>
+    <div class="setting-item">
+        <label>Export All Data:</label>
+        <div class="dropdown">
+            <button class="btn btn-primary dropdown-btn" onclick="toggleDropdown('settingsExport')">
+                📤 Export All Data ▼
+            </button>
+            <div id="settingsExport" class="dropdown-content">
+                <a href="#" onclick="event.preventDefault(); exportAllDataFormat('json')">Export as JSON</a>
+                <a href="#" onclick="event.preventDefault(); exportAllDataFormat('csv')">Export as CSV (All Modules)</a>
+                <a href="#" onclick="event.preventDefault(); exportAllDataFormat('xlsx')">Export as Excel</a>
+            </div>
+        </div>
+    </div>
+    <div class="setting-item">
+        <label>Import Data:</label>
+        <div class="dropdown">
+            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('settingsImport')">
+                📥 Import Data ▼
+            </button>
+            <div id="settingsImport" class="dropdown-content">
+                <a href="#" onclick="event.preventDefault(); importAllDataFormat('json')">Import JSON</a>
+                <a href="#" onclick="event.preventDefault(); importAllDataFormat('csv')">Import CSV</a>
+                <a href="#" onclick="event.preventDefault(); importAllDataFormat('xlsx')">Import Excel</a>
+            </div>
+        </div>
+        <input type="file" id="importFileJSON" accept=".json" style="display:none" onchange="handleImportFile(event, 'json')">
+        <input type="file" id="importFileCSV" accept=".csv" style="display:none" onchange="handleImportFile(event, 'csv')">
+        <input type="file" id="importFileXLSX" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(event, 'xlsx')">
+    </div>
+    <div class="setting-item">
+        <button onclick="clearAllData()" class="btn btn-danger">🗑️ Clear All Data</button>
+    </div>
+</div>
 
                     <div class="settings-group">
                         <h3>About</h3>
