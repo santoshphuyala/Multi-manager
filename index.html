@@ -251,36 +251,37 @@
                 <div id="subscriptionList" class="item-list"></div>
             </section>
 
-            <!-- Expense Module -->
-            <section id="expenseModule" class="module">
-                <div class="module-header">
-                    <h2>💰 Expense Splitter</h2>
-                    <div class="module-actions">
-                        <div class="dropdown">
-                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('expenseExport')">
-                                📤 Export ▼
-                            </button>
-                            <div id="expenseExport" class="dropdown-content">
-                                <a href="#" onclick="event.preventDefault(); exportModuleData('expenses', 'Expense', 'json')">Export as JSON</a>
-                                <a href="#" onclick="event.preventDefault(); exportModuleData('expenses', 'Expense', 'csv')">Export as CSV</a>
-                                <a href="#" onclick="event.preventDefault(); exportModuleData('expenses', 'Expense', 'xlsx')">Export as Excel</a>
-                            </div>
-                        </div>
-                        <div class="dropdown">
-                            <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('expenseImport')">
-                                📥 Import ▼
-                            </button>
-                            <div id="expenseImport" class="dropdown-content">
-                                <a href="#" onclick="event.preventDefault(); importModuleData('expenses', 'json')">Import JSON</a>
-                                <a href="#" onclick="event.preventDefault(); importModuleData('expenses', 'csv')">Import CSV</a>
-                                <a href="#" onclick="event.preventDefault(); importModuleData('expenses', 'xlsx')">Import Excel</a>
-                            </div>
-                        </div>
-                        <button onclick="showAddExpense()" class="btn btn-primary">+ Add Expense</button>
-                    </div>
+          
+<section id="expenseModule" class="module">
+    <div class="module-header">
+        <h2>💰 Expense Splitter</h2>
+        <div class="module-actions">
+            <div class="dropdown">
+                <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('expenseExport')">
+                    📤 Export ▼
+                </button>
+                <div id="expenseExport" class="dropdown-content">
+                    <a href="#" onclick="event.preventDefault(); exportModuleData('expenseGroups', 'ExpenseGroup', 'json')">Export as JSON</a>
+                    <a href="#" onclick="event.preventDefault(); exportModuleData('expenseGroups', 'ExpenseGroup', 'csv')">Export as CSV</a>
+                    <a href="#" onclick="event.preventDefault(); exportModuleData('expenseGroups', 'ExpenseGroup', 'xlsx')">Export as Excel</a>
                 </div>
-                <div id="expenseList" class="item-list"></div>
-            </section>
+            </div>
+            <div class="dropdown">
+                <button class="btn btn-secondary dropdown-btn" onclick="toggleDropdown('expenseImport')">
+                    📥 Import ▼
+                </button>
+                <div id="expenseImport" class="dropdown-content">
+                    <a href="#" onclick="event.preventDefault(); importModuleData('expenseGroups', 'json')">Import JSON</a>
+                    <a href="#" onclick="event.preventDefault(); importModuleData('expenseGroups', 'csv')">Import CSV</a>
+                    <a href="#" onclick="event.preventDefault(); importModuleData('expenseGroups', 'xlsx')">Import Excel</a>
+                </div>
+            </div>
+            <!-- CHANGE THIS LINE FROM showAddExpense() to showAddExpenseGroup() -->
+            <button onclick="showAddExpenseGroup()" class="btn btn-primary">+ Create Group</button>
+        </div>
+    </div>
+    <div id="expenseList" class="item-list"></div>
+</section>
 
             <!-- Travel Module -->
             <section id="travelModule" class="module">
