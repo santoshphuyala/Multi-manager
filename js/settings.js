@@ -274,7 +274,7 @@ async function executeCSVImport() {
       const moduleLoaders = {
         'medicines': loadMedicines,
         'subscriptions': loadSubscriptions,
-        'expenses': loadExpenses,
+        'expenseGroups': loadExpenses,  // CHANGED from 'expenses'
         'travels': loadTravels,
         'insurances': loadInsurances,
         'bills': loadBills,
