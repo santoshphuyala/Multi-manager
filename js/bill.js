@@ -128,6 +128,7 @@ function showAddBill() {
       <div class="form-group">
         <label for="billCurrency">Currency</label>
         <select id="billCurrency">
+        <option value="NRs">NRs</option>
           <option value="USD">USD</option>
           <option value="EUR">EUR</option>
           <option value="GBP">GBP</option>
@@ -321,6 +322,7 @@ async function editBill(id) {
       <div class="form-group">
         <label for="billCurrency">Currency</label>
         <select id="billCurrency">
+        <option value="NRs" ${bill.currency === 'NRs' ? 'selected' : ''}>NRs</option>
           <option value="USD" ${bill.currency === 'USD' ? 'selected' : ''}>USD</option>
           <option value="EUR" ${bill.currency === 'EUR' ? 'selected' : ''}>EUR</option>
           <option value="GBP" ${bill.currency === 'GBP' ? 'selected' : ''}>GBP</option>
