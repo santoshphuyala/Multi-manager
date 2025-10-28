@@ -1673,3 +1673,107 @@ function exportExpenseGroupExcel(group) {
     showToast('Error exporting to Excel: ' + error.message);
   }
 }
+
+// ==================== EXPENSE GROUP EXPORT (Single Group) ====================
+
+async function exportExpenseGroup(groupId, format) {
+  const group = await db.get('expenseGroups', groupId);
+  
+  if (!group) {
+    showToast('Group not found');
+    return;
+  }
+
+  const exportData = [{
+    name: group.name,
+    description: group.description || '',
+    currency: group.currency || 'NRs',
+    startDate: group.startDate,
+    endDate: group.endDate,
+    participants: group.participants || [],
+    expenses: (group.expenses || []).map(exp => ({
+      id: exp.id,
+      date: exp.date,
+      description: exp.description,
+      amount: exp.amount || 0,
+      paidBy: exp.paidBy,
+      splitType: exp.splitType,
+      splits: exp.splits || {},
+      notes: exp.notes || ''
+    })),
+    settled: group.settled || false
+  }];
+
+  const filename = `${group.name.replace(/[^a-z0-9]/gi, '_')}_${getTimestamp()}`;
+
+  switch(format) {
+    case 'json':
+      exportToJSON(exportData, filename);
+      showToast('Group exported as JSON!');
+      break;
+    case 'csv':
+      const csvData = [{
+        name: group.name,
+        description: group.description || '',
+        currency: group.currency || 'NRs',
+        startDate: group.startDate,
+        endDate: group.endDate,
+        participants: (group.participants || []).join('; '),
+        expenseCount: (group.expenses || []).length,
+        settled: group.settled ? 'Yes' : 'No'
+      }];
+      exportToCSV(csvData, filename);
+      showToast('Group exported as CSV!');
+      break;
+    case 'xlsx':
+      exportGroupAsExcel(group, filename);
+      break;
+  }
+}
+
+function exportGroupAsExcel(group, filename) {
+  if (typeof XLSX === 'undefined') {
+    showToast('Excel library not loaded');
+    return;
+  }
+
+  try {
+    const wb = XLSX.utils.book_new();
+    
+    // Main sheet
+    const mainData = [{
+      name: group.name,
+      description: group.description || '',
+      currency: group.currency || 'NRs',
+      startDate: group.startDate,
+      endDate: group.endDate,
+      participants: (group.participants || []).join('; '),
+      expenseCount: (group.expenses || []).length,
+      settled: group.settled ? 'Yes' : 'No'
+    }];
+    
+    const ws = XLSX.utils.json_to_sheet(mainData);
+    XLSX.utils.book_append_sheet(wb, ws, 'Group Info');
+    
+    // Expenses sheet
+    if (group.expenses && group.expenses.length > 0) {
+      const expData = group.expenses.map(exp => ({
+        Date: exp.date,
+        Description: exp.description,
+        Amount: exp.amount,
+        'Paid By': exp.paidBy,
+        'Split Type': exp.splitType,
+        Notes: exp.notes || ''
+      }));
+      
+      const wsExp = XLSX.utils.json_to_sheet(expData);
+      XLSX.utils.book_append_sheet(wb, wsExp, 'Expenses');
+    }
+    
+    XLSX.writeFile(wb, `${filename}.xlsx`);
+    showToast('Group exported as Excel!');
+  } catch (error) {
+    console.error('Excel export error:', error);
+    showToast('Error exporting Excel: ' + error.message);
+  }
+}
