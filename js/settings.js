@@ -1,4 +1,4 @@
-// Enhanced Settings Module with Format Selection
+// Enhanced Settings Module with Format Selection - FIXED VERSION
 
 function loadSettings() {
   // Load PIN setting
@@ -75,9 +75,12 @@ function applyTheme(theme) {
   }
 }
 
-// Export All Data with Format Selection
+// Export All Data with Format Selection - FIXED
 async function exportAllDataFormat(format) {
-  if (event) event.preventDefault();
+  // Close dropdown
+  document.querySelectorAll('.dropdown-content').forEach(dropdown => {
+    dropdown.classList.remove('show');
+  });
   
   try {
     const data = await db.exportData();
@@ -86,38 +89,52 @@ async function exportAllDataFormat(format) {
     switch(format) {
       case 'json':
         exportToJSON(data, baseFilename);
+        showToast('Full backup exported as JSON!');
         break;
+        
       case 'csv':
         // Export each module as separate CSV
-        const stores = ['medicines', 'subscriptions', 'expenses', 'travels', 'insurances', 'bills', 'vehicles', 'pets'];
+        const stores = ['medicines', 'subscriptions', 'expenses', 'travels', 'insurances', 'bills', 'vehicles', 'pets', 'customCategories', 'customItems'];
+        let exportedCount = 0;
+        
         for (const store of stores) {
           if (data[store] && data[store].length > 0) {
             exportToCSV(data[store], `${baseFilename}-${store}`);
+            exportedCount++;
           }
         }
-        showToast('All modules exported as separate CSV files!');
+        
+        if (exportedCount > 0) {
+          showToast(`${exportedCount} CSV files exported successfully!`);
+        } else {
+          showToast('No data to export');
+        }
         break;
+        
       case 'xlsx':
         // Create multi-sheet Excel file
         await exportAllToExcel(data, baseFilename);
         break;
+        
       default:
         showToast('Invalid format selected');
     }
   } catch (error) {
+    console.error('Export error:', error);
     showToast('Error exporting data: ' + error.message);
   }
 }
 
-// Export all data to multi-sheet Excel
+// Export all data to multi-sheet Excel - FIXED
 async function exportAllToExcel(data, baseFilename) {
   if (typeof XLSX === 'undefined') {
-    showToast('Excel library not loaded');
+    showToast('Excel library not loaded. Please refresh the page.');
     return;
   }
 
   try {
     const wb = XLSX.utils.book_new();
+    let sheetCount = 0;
     
     const stores = {
       'medicines': 'Medicines',
@@ -137,57 +154,149 @@ async function exportAllToExcel(data, baseFilename) {
         const flattenedData = data[key].map(item => flattenObject(item));
         const ws = XLSX.utils.json_to_sheet(flattenedData);
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        sheetCount++;
       }
+    }
+    
+    if (sheetCount === 0) {
+      showToast('No data to export');
+      return;
     }
     
     const filename = `${baseFilename}_${getTimestamp()}.xlsx`;
     XLSX.writeFile(wb, filename);
-    showToast('Excel file with all modules exported successfully!');
+    showToast(`Excel file with ${sheetCount} sheets exported successfully!`);
   } catch (error) {
+    console.error('Excel export error:', error);
     showToast('Error creating Excel file: ' + error.message);
   }
 }
 
-// Import All Data with Format Selection
+// Import All Data with Format Selection - FIXED
 function importAllDataFormat(format) {
-  if (event) event.preventDefault();
+  // Close dropdown
+  document.querySelectorAll('.dropdown-content').forEach(dropdown => {
+    dropdown.classList.remove('show');
+  });
   
   if (format === 'json') {
     document.getElementById('importFileJSON').click();
+  } else if (format === 'csv') {
+    document.getElementById('importFileCSV').click();
   } else if (format === 'xlsx') {
     document.getElementById('importFileXLSX').click();
   }
 }
 
-// Handle Import File
+// Handle Import File - FIXED
 async function handleImportFile(event, format) {
   const file = event.target.files[0];
   if (!file) return;
 
   try {
-    let data;
-
     if (format === 'json') {
-      data = await importFromJSON(file);
+      const data = await importFromJSON(file);
       
       if (confirmAction('This will replace all existing data. Continue?')) {
         await db.importData(data);
         showToast('Data imported successfully!');
         setTimeout(() => location.reload(), 1000);
       }
+    } else if (format === 'csv') {
+      // CSV import - ask which module
+      showImportCSVDialog(file);
     } else if (format === 'xlsx') {
       if (confirmAction('Import from Excel will replace existing data. Continue?')) {
         await importFromExcel(file);
       }
     }
   } catch (error) {
+    console.error('Import error:', error);
     showToast('Error importing data: ' + error.message);
   }
 
   event.target.value = '';
 }
 
-// Import from Excel (multi-sheet)
+// Show CSV Import Dialog - NEW
+function showImportCSVDialog(file) {
+  const modalContent = `
+    <div class="form-group">
+      <label>Select module to import CSV data into:</label>
+      <select id="csvImportModule" class="form-control">
+        <option value="medicines">Medicines</option>
+        <option value="subscriptions">Subscriptions</option>
+        <option value="expenses">Expenses</option>
+        <option value="travels">Travels</option>
+        <option value="insurances">Insurances</option>
+        <option value="bills">Bills</option>
+        <option value="vehicles">Vehicles</option>
+        <option value="pets">Pets</option>
+        <option value="customCategories">Custom Categories</option>
+        <option value="customItems">Custom Items</option>
+      </select>
+    </div>
+    <div class="form-actions">
+      <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancel</button>
+      <button type="button" onclick="executeCSVImport()" class="btn btn-primary">Import CSV</button>
+    </div>
+  `;
+  
+  openModal('Import CSV File', modalContent);
+  
+  // Store file reference
+  window.pendingCSVFile = file;
+}
+
+// Execute CSV Import - NEW
+async function executeCSVImport() {
+  const module = document.getElementById('csvImportModule').value;
+  const file = window.pendingCSVFile;
+  
+  if (!file) {
+    showToast('No file selected');
+    return;
+  }
+  
+  try {
+    const data = await importFromCSV(file);
+    
+    if (confirmAction(`Import ${data.length} items into ${module}? This will replace existing data.`)) {
+      await db.clear(module);
+      for (const item of data) {
+        delete item.id;
+        await db.add(module, item);
+      }
+      showToast('CSV data imported successfully!');
+      closeModal();
+      
+      // Reload appropriate module
+      const moduleLoaders = {
+        'medicines': loadMedicines,
+        'subscriptions': loadSubscriptions,
+        'expenses': loadExpenses,
+        'travels': loadTravels,
+        'insurances': loadInsurances,
+        'bills': loadBills,
+        'vehicles': loadVehicles,
+        'pets': loadPets
+      };
+      
+      if (moduleLoaders[module]) {
+        setTimeout(() => {
+          showModule(module.replace('s', ''));
+          moduleLoaders[module]();
+        }, 500);
+      }
+    }
+  } catch (error) {
+    showToast('Error importing CSV: ' + error.message);
+  }
+  
+  window.pendingCSVFile = null;
+}
+
+// Import from Excel (multi-sheet) - FIXED
 async function importFromExcel(file) {
   if (typeof XLSX === 'undefined') {
     showToast('Excel library not loaded');
@@ -214,6 +323,8 @@ async function importFromExcel(file) {
           'Custom Items': 'customItems'
         };
         
+        let importedSheets = 0;
+        
         for (const sheetName of workbook.SheetNames) {
           const storeName = storeMapping[sheetName];
           if (storeName) {
@@ -223,20 +334,24 @@ async function importFromExcel(file) {
             if (jsonData.length > 0) {
               await db.clear(storeName);
               for (const item of jsonData) {
+                delete item.id;
                 await db.add(storeName, item);
               }
+              importedSheets++;
             }
           }
         }
         
-        showToast('Excel data imported successfully!');
+        showToast(`Excel data imported successfully! (${importedSheets} modules)`);
         setTimeout(() => location.reload(), 1000);
       } catch (error) {
+        console.error('Excel read error:', error);
         showToast('Error reading Excel file: ' + error.message);
       }
     };
     reader.readAsArrayBuffer(file);
   } catch (error) {
+    console.error('Excel import error:', error);
     showToast('Error importing Excel: ' + error.message);
   }
 }
@@ -277,7 +392,10 @@ async function clearAllData() {
 
 // Individual Module Export with Format Selection
 async function exportModuleData(storeName, moduleName, format) {
-  if (event) event.preventDefault();
+  // Close dropdown
+  document.querySelectorAll('.dropdown-content').forEach(dropdown => {
+    dropdown.classList.remove('show');
+  });
   
   try {
     const data = await db.getAll(storeName);
@@ -308,7 +426,10 @@ async function exportModuleData(storeName, moduleName, format) {
 
 // Individual Module Import with Format Selection
 function importModuleData(storeName, format) {
-  if (event) event.preventDefault();
+  // Close dropdown
+  document.querySelectorAll('.dropdown-content').forEach(dropdown => {
+    dropdown.classList.remove('show');
+  });
   
   const input = document.createElement('input');
   input.type = 'file';
@@ -363,7 +484,10 @@ function importModuleData(storeName, format) {
 
 // Custom module export/import
 async function exportCustomData(format) {
-  if (event) event.preventDefault();
+  // Close dropdown
+  document.querySelectorAll('.dropdown-content').forEach(dropdown => {
+    dropdown.classList.remove('show');
+  });
   
   try {
     const categories = await db.getAll('customCategories');
@@ -409,7 +533,10 @@ async function exportCustomData(format) {
 }
 
 async function importCustomData(format) {
-  if (event) event.preventDefault();
+  // Close dropdown
+  document.querySelectorAll('.dropdown-content').forEach(dropdown => {
+    dropdown.classList.remove('show');
+  });
   
   const input = document.createElement('input');
   input.type = 'file';
