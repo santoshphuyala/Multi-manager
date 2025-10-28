@@ -251,7 +251,20 @@
                 <div id="subscriptionList" class="item-list"></div>
             </section>
 
-          
+<!-- In the expense module section -->
+<div class="module-actions">
+    <div class="dropdown">
+        <button class="btn btn-success dropdown-btn" onclick="toggleDropdown('expenseExportAll')">
+            📊 Export Reports ▼
+        </button>
+        <div id="expenseExportAll" class="dropdown-content">
+            <a href="#" onclick="event.preventDefault(); exportModuleData('expenseGroups', 'ExpenseGroup', 'xlsx')">All Groups - Excel</a>
+            <a href="#" onclick="event.preventDefault(); exportModuleData('expenseGroups', 'ExpenseGroup', 'csv')">All Groups - CSV</a>
+            <a href="#" onclick="event.preventDefault(); exportModuleData('expenseGroups', 'ExpenseGroup', 'json')">All Groups - JSON</a>
+        </div>
+    </div>
+    <!-- Other buttons... -->
+</div>          
 <section id="expenseModule" class="module">
     <div class="module-header">
         <h2>💰 Expense Splitter</h2>
