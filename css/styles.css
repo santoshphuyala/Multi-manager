@@ -1131,3 +1131,116 @@ textarea:focus-visible {
   outline: 2px solid var(--primary-color);
   outline-offset: 2px;
 }
+
+/* ==================================
+   DROPDOWN STYLES (ADD TO EXISTING CSS)
+   ================================== */
+
+.module-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-btn {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: white;
+  min-width: 200px;
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  top: 100%;
+  left: 0;
+  margin-top: 0.25rem;
+}
+
+.dropdown-content.show {
+  display: block;
+  animation: dropdownFadeIn 0.2s ease;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-content a {
+  color: var(--text-color);
+  padding: 0.75rem 1rem;
+  text-decoration: none;
+  display: block;
+  transition: background 0.2s;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.dropdown-content a:hover {
+  background-color: var(--bg-color);
+  color: var(--primary-color);
+}
+
+/* Dark theme dropdown */
+body.theme-dark .dropdown-content {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+}
+
+body.theme-dark .dropdown-content a {
+  color: var(--text-color);
+}
+
+body.theme-dark .dropdown-content a:hover {
+  background-color: #374151;
+}
+
+/* Responsive dropdown */
+@media (max-width: 768px) {
+  .module-actions {
+    width: 100%;
+  }
+  
+  .dropdown {
+    flex: 1;
+    min-width: fit-content;
+  }
+  
+  .dropdown-btn {
+    width: 100%;
+    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .dropdown-content {
+    right: 0;
+    left: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .module-actions {
+    flex-direction: column;
+  }
+  
+  .dropdown-btn {
+    font-size: 0.875rem;
+  }
+}
