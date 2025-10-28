@@ -196,18 +196,33 @@ async function viewGroupDetails(groupId) {
 
   const sortedDates = Object.keys(expensesByDate).sort();
 
-  let content = `
-    <div class="expense-group-details">
-      <div style="margin-bottom: 1rem;">
-        <h3>${group.name}</h3>
-        <p style="color: var(--text-secondary);">${group.description || ''}</p>
-        <p><strong>Period:</strong> ${formatDate(group.startDate)} - ${formatDate(group.endDate)}</p>
-        <p><strong>Participants:</strong> ${group.participants.join(', ')}</p>
-      </div>
+  // In viewGroupDetails function, after the group info section, add:
 
-      <button onclick="addExpenseToGroup(${groupId})" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;">
-        ➕ Add New Expense
+let content = `
+  <div class="expense-group-details">
+    <div style="margin-bottom: 1rem;">
+      <h3>${group.name}</h3>
+      <p style="color: var(--text-secondary);">${group.description || ''}</p>
+      <p><strong>Period:</strong> ${formatDate(group.startDate)} - ${formatDate(group.endDate)}</p>
+      <p><strong>Participants:</strong> ${group.participants.join(', ')}</p>
+    </div>
+
+    <!-- ADD EXPORT BUTTONS HERE -->
+    <div class="export-buttons" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+      <button onclick="exportExpenseGroup(${groupId}, 'xlsx')" class="btn btn-success" style="flex: 1;">
+        📊 Export Excel Report
       </button>
+      <button onclick="exportExpenseGroup(${groupId}, 'csv')" class="btn btn-secondary" style="flex: 1;">
+        📄 Export CSV
+      </button>
+      <button onclick="exportExpenseGroup(${groupId}, 'json')" class="btn btn-secondary" style="flex: 1;">
+        📋 Export JSON
+      </button>
+    </div>
+
+    <button onclick="addExpenseToGroup(${groupId})" class="btn btn-primary" style="width: 100%; margin-bottom: 1rem;">
+      ➕ Add New Expense
+    </button>
 
       <div class="expense-tabs">
         <button class="expense-tab active" onclick="switchExpenseTab(event, 'expenses')">Expenses</button>
