@@ -74,6 +74,7 @@ function showAddTravel() {
       <div class="form-group">
         <label for="travelCurrency">Currency</label>
         <select id="travelCurrency">
+        <option value="NRs">NRs</option>
           <option value="USD">USD</option>
           <option value="EUR">EUR</option>
           <option value="GBP">GBP</option>
@@ -161,6 +162,7 @@ async function editTravel(id) {
       <div class="form-group">
         <label for="travelCurrency">Currency</label>
         <select id="travelCurrency">
+          <option value="NRs" ${trip.currency === 'NRs' ? 'selected' : ''}>NRs</option>
           <option value="USD" ${trip.currency === 'USD' ? 'selected' : ''}>USD</option>
           <option value="EUR" ${trip.currency === 'EUR' ? 'selected' : ''}>EUR</option>
           <option value="GBP" ${trip.currency === 'GBP' ? 'selected' : ''}>GBP</option>
