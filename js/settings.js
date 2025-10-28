@@ -1,4 +1,4 @@
-// Enhanced Settings Module with Format Selection - FIXED VERSION
+// Enhanced Settings Module with Format Selection - COMPLETE FIXED VERSION
 
 function loadSettings() {
   // Load PIN setting
@@ -75,7 +75,8 @@ function applyTheme(theme) {
   }
 }
 
-// Export All Data with Format Selection - FIXED
+// ==================== EXPORT ALL DATA ====================
+
 async function exportAllDataFormat(format) {
   // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
@@ -99,7 +100,22 @@ async function exportAllDataFormat(format) {
         
         for (const store of stores) {
           if (data[store] && data[store].length > 0) {
-            exportToCSV(data[store], `${baseFilename}-${store}`);
+            // Special handling for expense groups
+            if (store === 'expenseGroups') {
+              const csvData = data[store].map(group => ({
+                name: group.name || 'Untitled',
+                description: group.description || '',
+                currency: group.currency || 'NRs',
+                startDate: group.startDate || '',
+                endDate: group.endDate || '',
+                participants: (group.participants || []).join(', '),
+                expenseCount: (group.expenses || []).length,
+                settled: group.settled ? 'Yes' : 'No'
+              }));
+              exportToCSV(csvData, `${baseFilename}-${store}`);
+            } else {
+              exportToCSV(data[store], `${baseFilename}-${store}`);
+            }
             exportedCount++;
           }
         }
@@ -125,7 +141,7 @@ async function exportAllDataFormat(format) {
   }
 }
 
-// Export all data to multi-sheet Excel - FIXED
+// Export all data to multi-sheet Excel
 async function exportAllToExcel(data, baseFilename) {
   if (typeof XLSX === 'undefined') {
     showToast('Excel library not loaded. Please refresh the page.');
@@ -154,11 +170,11 @@ async function exportAllToExcel(data, baseFilename) {
         // Special handling for expense groups
         if (key === 'expenseGroups') {
           const flattenedData = data[key].map(group => ({
-            name: group.name,
+            name: group.name || 'Untitled',
             description: group.description || '',
             currency: group.currency || 'NRs',
-            startDate: group.startDate,
-            endDate: group.endDate,
+            startDate: group.startDate || '',
+            endDate: group.endDate || '',
             participants: (group.participants || []).join(', '),
             expenseCount: (group.expenses || []).length,
             settled: group.settled ? 'Yes' : 'No'
@@ -188,7 +204,8 @@ async function exportAllToExcel(data, baseFilename) {
   }
 }
 
-// Import All Data with Format Selection - FIXED
+// ==================== IMPORT ALL DATA ====================
+
 function importAllDataFormat(format) {
   // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
@@ -204,7 +221,7 @@ function importAllDataFormat(format) {
   }
 }
 
-// Handle Import File - FIXED
+// Handle Import File
 async function handleImportFile(event, format) {
   const file = event.target.files[0];
   if (!file) return;
@@ -234,7 +251,7 @@ async function handleImportFile(event, format) {
   event.target.value = '';
 }
 
-// Show CSV Import Dialog - FIXED
+// Show CSV Import Dialog
 function showImportCSVDialog(file) {
   const modalContent = `
     <div class="form-group">
@@ -264,7 +281,7 @@ function showImportCSVDialog(file) {
   window.pendingCSVFile = file;
 }
 
-// Execute CSV Import - FIXED
+// Execute CSV Import
 async function executeCSVImport() {
   const module = document.getElementById('csvImportModule').value;
   const file = window.pendingCSVFile;
@@ -277,34 +294,72 @@ async function executeCSVImport() {
   try {
     const data = await importFromCSV(file);
     
-    if (confirmAction(`Import ${data.length} items into ${module}? This will replace existing data.`)) {
+    // Filter out empty rows
+    const validData = data.filter(item => {
+      if (!item || typeof item !== 'object') return false;
+      
+      const keys = Object.keys(item);
+      if (keys.length === 0) return false;
+      
+      // Check if row has meaningful data
+      return keys.some(key => {
+        const value = item[key];
+        return key !== 'id' && value !== null && value !== undefined && value !== '';
+      });
+    });
+    
+    if (validData.length === 0) {
+      showToast('No valid data found in CSV file');
+      return;
+    }
+    
+    if (confirmAction(`Import ${validData.length} items into ${module}? This will replace existing data.`)) {
       await db.clear(module);
+      
+      let importedCount = 0;
       
       // Special handling for expense groups
       if (module === 'expenseGroups') {
-        for (const item of data) {
-          // Ensure proper structure
+        for (const item of validData) {
+          if (!item.name || item.name.trim() === '') continue;
+          
           const expenseGroup = {
-            name: item.name || 'Untitled Group',
+            name: item.name.trim(),
             description: item.description || '',
             currency: item.currency || 'NRs',
             startDate: item.startDate || new Date().toISOString().split('T')[0],
             endDate: item.endDate || new Date().toISOString().split('T')[0],
             participants: item.participants ? 
-              (typeof item.participants === 'string' ? item.participants.split(',').map(p => p.trim()) : item.participants) : [],
+              (typeof item.participants === 'string' ? 
+                item.participants.split(',').map(p => p.trim()).filter(p => p !== '') : 
+                Array.isArray(item.participants) ? item.participants : []) : [],
             expenses: [],
             settled: item.settled === 'Yes' || item.settled === true || item.settled === 'true'
           };
-          await db.add(module, expenseGroup);
+          
+          if (expenseGroup.participants.length > 0) {
+            await db.add(module, expenseGroup);
+            importedCount++;
+          }
         }
       } else {
-        for (const item of data) {
-          delete item.id;
-          await db.add(module, item);
+        for (const item of validData) {
+          const cleanItem = {};
+          
+          Object.keys(item).forEach(key => {
+            if (key !== 'id' && item[key] !== null && item[key] !== undefined && item[key] !== '') {
+              cleanItem[key] = item[key];
+            }
+          });
+          
+          if (Object.keys(cleanItem).length > 0) {
+            await db.add(module, cleanItem);
+            importedCount++;
+          }
         }
       }
       
-      showToast('CSV data imported successfully!');
+      showToast(`${importedCount} items imported successfully!`);
       closeModal();
       
       // Reload appropriate module
@@ -343,7 +398,7 @@ async function executeCSVImport() {
   window.pendingCSVFile = null;
 }
 
-// Import from Excel (multi-sheet) - FIXED
+// Import from Excel (multi-sheet) - FIXED TO AVOID BLANK ENTRIES
 async function importFromExcel(file) {
   if (typeof XLSX === 'undefined') {
     showToast('Excel library not loaded');
@@ -357,6 +412,7 @@ async function importFromExcel(file) {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
         
+        // Mapping of sheet names to store names
         const storeMapping = {
           'Medicines': 'medicines',
           'Subscriptions': 'subscriptions',
@@ -371,36 +427,92 @@ async function importFromExcel(file) {
         };
         
         let importedSheets = 0;
+        let totalItems = 0;
         
         for (const sheetName of workbook.SheetNames) {
+          // Skip detail/reference sheets
+          if (sheetName.startsWith('Detail_') || 
+              sheetName.includes('Summary') || 
+              sheetName.includes('Settlement') || 
+              sheetName.includes('Split Details')) {
+            continue;
+          }
+          
           const storeName = storeMapping[sheetName];
+          
+          // Only process sheets that match our store mapping
           if (storeName) {
             const worksheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json(worksheet);
             
-            if (jsonData.length > 0) {
+            // Filter out empty rows
+            const validData = jsonData.filter(item => {
+              if (!item || typeof item !== 'object') return false;
+              
+              // Check if row has any meaningful data
+              const keys = Object.keys(item);
+              if (keys.length === 0) return false;
+              
+              // Check if all values are empty/null/undefined
+              const hasData = keys.some(key => {
+                const value = item[key];
+                return value !== null && value !== undefined && value !== '' && 
+                       !(typeof value === 'string' && value.trim() === '');
+              });
+              
+              return hasData;
+            });
+            
+            if (validData.length > 0) {
               await db.clear(storeName);
               
               // Special handling for expense groups
               if (storeName === 'expenseGroups') {
-                for (const item of jsonData) {
+                for (const item of validData) {
+                  // Only import if it has a name (required field)
+                  if (!item.name || item.name.trim() === '') continue;
+                  
                   const expenseGroup = {
-                    name: item.name || 'Untitled Group',
+                    name: item.name.trim(),
                     description: item.description || '',
                     currency: item.currency || 'NRs',
                     startDate: item.startDate || new Date().toISOString().split('T')[0],
                     endDate: item.endDate || new Date().toISOString().split('T')[0],
                     participants: item.participants ? 
-                      (typeof item.participants === 'string' ? item.participants.split(',').map(p => p.trim()) : []) : [],
+                      (typeof item.participants === 'string' ? 
+                        item.participants.split(',').map(p => p.trim()).filter(p => p !== '') : 
+                        Array.isArray(item.participants) ? item.participants : []) : [],
                     expenses: [],
                     settled: item.settled === 'Yes' || item.settled === true || item.settled === 'true'
                   };
-                  await db.add(storeName, expenseGroup);
+                  
+                  // Only add if has participants
+                  if (expenseGroup.participants.length > 0) {
+                    await db.add(storeName, expenseGroup);
+                    totalItems++;
+                  }
                 }
               } else {
-                for (const item of jsonData) {
-                  delete item.id;
-                  await db.add(storeName, item);
+                // For other modules
+                for (const item of validData) {
+                  // Clean the item - remove undefined/null values
+                  const cleanItem = {};
+                  let hasRequiredData = false;
+                  
+                  Object.keys(item).forEach(key => {
+                    const value = item[key];
+                    if (value !== null && value !== undefined && value !== '' && 
+                        !(typeof value === 'string' && value.trim() === '')) {
+                      cleanItem[key] = value;
+                      if (key !== 'id') hasRequiredData = true;
+                    }
+                  });
+                  
+                  if (hasRequiredData) {
+                    delete cleanItem.id; // Let autoincrement handle IDs
+                    await db.add(storeName, cleanItem);
+                    totalItems++;
+                  }
                 }
               }
               importedSheets++;
@@ -408,7 +520,12 @@ async function importFromExcel(file) {
           }
         }
         
-        showToast(`Excel data imported successfully! (${importedSheets} modules)`);
+        if (totalItems === 0) {
+          showToast('No valid data found in Excel file');
+          return;
+        }
+        
+        showToast(`Excel imported successfully! ${totalItems} items from ${importedSheets} modules`);
         setTimeout(() => location.reload(), 1000);
       } catch (error) {
         console.error('Excel read error:', error);
@@ -421,6 +538,55 @@ async function importFromExcel(file) {
     showToast('Error importing Excel: ' + error.message);
   }
 }
+
+// Import from XLSX for individual modules
+async function importFromXLSX(file) {
+  if (typeof XLSX === 'undefined') {
+    showToast('Excel library not loaded');
+    return [];
+  }
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        // Take only the first sheet for individual module import
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        // Filter out empty rows
+        const validData = jsonData.filter(item => {
+          if (!item || typeof item !== 'object') return false;
+          
+          const keys = Object.keys(item);
+          if (keys.length === 0) return false;
+          
+          const hasData = keys.some(key => {
+            const value = item[key];
+            return value !== null && value !== undefined && value !== '' && 
+                   !(typeof value === 'string' && value.trim() === '');
+          });
+          
+          return hasData;
+        });
+        
+        resolve(validData);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    
+    reader.onerror = (error) => reject(error);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ==================== CLEAR ALL DATA ====================
 
 async function clearAllData() {
   if (!confirmAction('Are you sure you want to delete ALL data? This cannot be undone!')) {
@@ -456,7 +622,9 @@ async function clearAllData() {
   }
 }
 
-// Export Module Data - FIXED
+// ==================== MODULE EXPORT/IMPORT ====================
+
+// Export Module Data
 async function exportModuleData(storeName, moduleName, format) {
   // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
@@ -481,12 +649,15 @@ async function exportModuleData(storeName, moduleName, format) {
     switch(format) {
       case 'json':
         exportToJSON(data, baseFilename);
+        showToast(`${moduleName} exported as JSON!`);
         break;
       case 'csv':
         exportToCSV(data, baseFilename);
+        showToast(`${moduleName} exported as CSV!`);
         break;
       case 'xlsx':
         exportToXLSX(data, baseFilename);
+        showToast(`${moduleName} exported as Excel!`);
         break;
       default:
         showToast('Invalid format');
@@ -496,7 +667,7 @@ async function exportModuleData(storeName, moduleName, format) {
   }
 }
 
-// Export All Expense Groups - FIXED WITH NULL CHECKS
+// Export All Expense Groups - ENHANCED
 async function exportAllExpenseGroups(groups, format) {
   if (typeof XLSX === 'undefined' && format === 'xlsx') {
     showToast('Excel library not loaded');
@@ -504,40 +675,63 @@ async function exportAllExpenseGroups(groups, format) {
   }
 
   if (format === 'xlsx') {
-    // Create workbook with all groups
+    // Create a SINGLE summary sheet with all groups for easy re-import
     const wb = XLSX.utils.book_new();
-
-    groups.forEach((group, index) => {
-      // Ensure arrays exist
+    
+    // Main sheet with all groups (importable)
+    const summaryData = groups.map(group => {
       const participants = group.participants || [];
       const expenses = group.expenses || [];
       
-      // Summary sheet for each group
-      const summaryData = [
+      return {
+        name: group.name || 'Untitled',
+        description: group.description || '',
+        currency: group.currency || 'NRs',
+        startDate: group.startDate || '',
+        endDate: group.endDate || '',
+        participants: participants.join(', '),
+        expenseCount: expenses.length,
+        totalAmount: expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0),
+        settled: group.settled ? 'Yes' : 'No'
+      };
+    });
+    
+    const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Expense Groups');
+
+    // Add detailed sheets for each group (for reference only, marked with prefix)
+    groups.forEach((group, index) => {
+      const participants = group.participants || [];
+      const expenses = group.expenses || [];
+      
+      // Expense details sheet
+      const expenseData = [
         [group.name || 'Untitled Group'],
         ['Period:', `${formatDate(group.startDate)} to ${formatDate(group.endDate)}`],
         ['Participants:', participants.join(', ')],
         ['Currency:', group.currency || 'NRs'],
         [''],
-        ['Date', 'Description', 'Amount', 'Paid By', 'Split Type']
+        ['Date', 'Description', 'Amount', 'Paid By', 'Split Type', 'Notes']
       ];
 
       expenses.forEach(exp => {
-        summaryData.push([
+        expenseData.push([
           exp.date || '',
           exp.description || '',
           exp.amount || 0,
           exp.paidBy || '',
-          exp.splitType === 'equal' ? 'Equal' : 'Custom'
+          exp.splitType === 'equal' ? 'Equal' : 'Custom',
+          exp.notes || ''
         ]);
       });
 
-      const ws = XLSX.utils.aoa_to_sheet(summaryData);
-      const sheetName = `${(group.name || 'Group').substring(0, 25)}_${index + 1}`;
+      const ws = XLSX.utils.aoa_to_sheet(expenseData);
+      // Use "Detail_" prefix to mark as non-importable reference sheet
+      const sheetName = `Detail_${(group.name || 'Group').substring(0, 20)}_${index + 1}`;
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
     });
 
-    const filename = `ExpenseGroups_All_${getTimestamp()}.xlsx`;
+    const filename = `ExpenseGroups_Export_${getTimestamp()}.xlsx`;
     XLSX.writeFile(wb, filename);
     showToast(`${groups.length} expense groups exported to Excel!`);
 
@@ -561,7 +755,7 @@ async function exportAllExpenseGroups(groups, format) {
     });
     
     exportToCSV(csvData, 'ExpenseGroups_Summary');
-    showToast(`Expense groups summary exported as CSV!`);
+    showToast(`${groups.length} expense groups exported as CSV!`);
 
   } else if (format === 'json') {
     const allData = groups.map(group => {
@@ -571,7 +765,8 @@ async function exportAllExpenseGroups(groups, format) {
       return {
         name: group.name,
         description: group.description || '',
-        period: `${group.startDate} to ${group.endDate}`,
+        startDate: group.startDate,
+        endDate: group.endDate,
         participants: participants,
         expenses: expenses.map(exp => ({
           id: exp.id,
@@ -593,7 +788,7 @@ async function exportAllExpenseGroups(groups, format) {
   }
 }
 
-// Individual Module Import with Format Selection - FIXED
+// Individual Module Import - ENHANCED VALIDATION
 function importModuleData(storeName, format) {
   // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
@@ -619,20 +814,49 @@ function importModuleData(storeName, format) {
         data = await importFromXLSX(file);
       }
       
-      if (confirmAction(`Import ${data.length} items? This will replace existing data in this module.`)) {
+      // Filter out empty/invalid entries
+      const validData = data.filter(item => {
+        if (!item || typeof item !== 'object') return false;
+        
+        const keys = Object.keys(item);
+        if (keys.length === 0) return false;
+        
+        // For expense groups, must have name
+        if (storeName === 'expenseGroups') {
+          return item.name && item.name.trim() !== '';
+        }
+        
+        // For other modules, must have some data
+        return keys.some(key => {
+          const value = item[key];
+          return key !== 'id' && value !== null && value !== undefined && value !== '' &&
+                 !(typeof value === 'string' && value.trim() === '');
+        });
+      });
+      
+      if (validData.length === 0) {
+        showToast('No valid data found in file');
+        return;
+      }
+      
+      if (confirmAction(`Import ${validData.length} items? This will replace existing data in this module.`)) {
         await db.clear(storeName);
+        
+        let importedCount = 0;
         
         // Special handling for expense groups
         if (storeName === 'expenseGroups') {
-          for (const item of data) {
+          for (const item of validData) {
             const expenseGroup = {
-              name: item.name || 'Untitled Group',
+              name: item.name.trim(),
               description: item.description || '',
               currency: item.currency || 'NRs',
               startDate: item.startDate || new Date().toISOString().split('T')[0],
               endDate: item.endDate || new Date().toISOString().split('T')[0],
-              participants: Array.isArray(item.participants) ? item.participants : 
-                            (typeof item.participants === 'string' ? item.participants.split(',').map(p => p.trim()) : []),
+              participants: item.participants ? 
+                (typeof item.participants === 'string' ? 
+                  item.participants.split(',').map(p => p.trim()).filter(p => p !== '') : 
+                  Array.isArray(item.participants) ? item.participants : []) : [],
               expenses: Array.isArray(item.expenses) ? item.expenses.map(exp => ({
                 id: exp.id || generateId(),
                 description: exp.description || '',
@@ -645,16 +869,31 @@ function importModuleData(storeName, format) {
               })) : [],
               settled: item.settled === 'Yes' || item.settled === true || item.settled === 'true' || false
             };
-            await db.add(storeName, expenseGroup);
+            
+            if (expenseGroup.participants.length > 0) {
+              await db.add(storeName, expenseGroup);
+              importedCount++;
+            }
           }
         } else {
-          for (const item of data) {
-            delete item.id; // Let autoincrement handle IDs
-            await db.add(storeName, item);
+          for (const item of validData) {
+            const cleanItem = {};
+            
+            Object.keys(item).forEach(key => {
+              if (key !== 'id' && item[key] !== null && item[key] !== undefined && item[key] !== '' &&
+                  !(typeof item[key] === 'string' && item[key].trim() === '')) {
+                cleanItem[key] = item[key];
+              }
+            });
+            
+            if (Object.keys(cleanItem).length > 0) {
+              await db.add(storeName, cleanItem);
+              importedCount++;
+            }
           }
         }
         
-        showToast('Data imported successfully!');
+        showToast(`${importedCount} items imported successfully!`);
         
         // Reload the current module
         const moduleLoaders = {
@@ -681,7 +920,9 @@ function importModuleData(storeName, format) {
   input.click();
 }
 
-// Custom module export/import - FIXED
+// ==================== CUSTOM MODULE EXPORT/IMPORT ====================
+
+// Export Custom Data
 async function exportCustomData(format) {
   // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
@@ -703,6 +944,7 @@ async function exportCustomData(format) {
     switch(format) {
       case 'json':
         exportToJSON(data, baseFilename);
+        showToast('Custom data exported as JSON!');
         break;
       case 'csv':
         if (categories.length > 0) exportToCSV(categories, `${baseFilename}-Categories`);
@@ -723,6 +965,8 @@ async function exportCustomData(format) {
           const filename = `${baseFilename}_${getTimestamp()}.xlsx`;
           XLSX.writeFile(wb, filename);
           showToast('Excel file exported successfully!');
+        } else {
+          showToast('Excel library not loaded');
         }
         break;
     }
@@ -731,6 +975,7 @@ async function exportCustomData(format) {
   }
 }
 
+// Import Custom Data
 async function importCustomData(format) {
   // Close dropdown
   document.querySelectorAll('.dropdown-content').forEach(dropdown => {
@@ -749,21 +994,25 @@ async function importCustomData(format) {
       if (format === 'json') {
         const data = await importFromJSON(file);
         if (confirmAction('Import custom data? This will replace existing custom categories and items.')) {
-          if (data.categories) {
+          let importedCount = 0;
+          
+          if (data.categories && Array.isArray(data.categories)) {
             await db.clear('customCategories');
             for (const cat of data.categories) {
               delete cat.id;
               await db.add('customCategories', cat);
+              importedCount++;
             }
           }
-          if (data.items) {
+          if (data.items && Array.isArray(data.items)) {
             await db.clear('customItems');
             for (const item of data.items) {
               delete item.id;
               await db.add('customItems', item);
+              importedCount++;
             }
           }
-          showToast('Custom data imported successfully!');
+          showToast(`${importedCount} custom items imported successfully!`);
           loadCustomCategories();
         }
       } else {
