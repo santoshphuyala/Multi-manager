@@ -1458,3 +1458,24 @@ body.theme-dark .dropdown-content a:hover {
     padding: 0.5rem;
   }
 }
+/* Custom Split Validation Styles */
+#customSplitValidation {
+  font-size: 0.9rem;
+}
+
+#customSplitValidation strong {
+  font-size: 1.1rem;
+}
+
+.custom-split-input:invalid {
+  border-color: #ff6b6b;
+}
+
+.custom-split-input:valid {
+  border-color: #51cf66;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
