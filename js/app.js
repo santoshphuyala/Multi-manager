@@ -122,22 +122,23 @@ function toggleSidebar() {
   overlay.classList.toggle('active');
 }
 
-// Update Dashboard Counts
+// REPLACE the updateDashboard function in app.js
+
 async function updateDashboard() {
   try {
     const medicines = await db.getAll('medicines');
     const subscriptions = await db.getAll('subscriptions');
-    const expenses = await db.getAll('expenses');
+    const expenseGroups = await db.getAll('expenseGroups'); // CHANGED from expenses
     const travels = await db.getAll('travels');
     const insurances = await db.getAll('insurances');
     const bills = await db.getAll('bills');
     const vehicles = await db.getAll('vehicles');
     const pets = await db.getAll('pets');
     const customItems = await db.getAll('customItems');
-
+    
     document.getElementById('medicineCount').textContent = medicines.length;
     document.getElementById('subscriptionCount').textContent = subscriptions.length;
-    document.getElementById('expenseCount').textContent = expenses.length;
+    document.getElementById('expenseCount').textContent = expenseGroups.length; // CHANGED
     document.getElementById('travelCount').textContent = travels.length;
     document.getElementById('insuranceCount').textContent = insurances.length;
     document.getElementById('billCount').textContent = bills.length;
