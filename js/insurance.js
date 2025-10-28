@@ -102,6 +102,7 @@ function showAddInsurance() {
       <div class="form-group">
         <label for="insCurrency">Currency</label>
         <select id="insCurrency">
+        <option value="NRs">NRs</option>
           <option value="USD">USD</option>
           <option value="EUR">EUR</option>
           <option value="GBP">GBP</option>
@@ -216,6 +217,7 @@ async function editInsurance(id) {
       <div class="form-group">
         <label for="insCurrency">Currency</label>
         <select id="insCurrency">
+        <option value="NRs" ${ins.currency === 'NRs' ? 'selected' : ''}>NRs</option>
           <option value="USD" ${ins.currency === 'USD' ? 'selected' : ''}>USD</option>
           <option value="EUR" ${ins.currency === 'EUR' ? 'selected' : ''}>EUR</option>
           <option value="GBP" ${ins.currency === 'GBP' ? 'selected' : ''}>GBP</option>
