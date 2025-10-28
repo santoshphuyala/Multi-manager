@@ -64,6 +64,7 @@ function showAddSubscription() {
       <div class="form-group">
         <label for="subCurrency">Currency</label>
         <select id="subCurrency">
+        <option value="NRs">NRs - NRs</option>
           <option value="USD">USD - US Dollar</option>
           <option value="EUR">EUR - Euro</option>
           <option value="GBP">GBP - British Pound</option>
@@ -167,6 +168,7 @@ async function editSubscription(id) {
       <div class="form-group">
         <label for="subCurrency">Currency</label>
         <select id="subCurrency">
+        <option value="NRs" ${sub.currency === 'NRs' ? 'selected' : ''}>NRs - Nepalese Rupee</option>
           <option value="USD" ${sub.currency === 'USD' ? 'selected' : ''}>USD - US Dollar</option>
           <option value="EUR" ${sub.currency === 'EUR' ? 'selected' : ''}>EUR - Euro</option>
           <option value="GBP" ${sub.currency === 'GBP' ? 'selected' : ''}>GBP - British Pound</option>
