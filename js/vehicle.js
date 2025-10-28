@@ -69,6 +69,7 @@ async function loadVehicles() {
 function getVehicleIcon(type) {
   const icons = {
     'Car': '🚗',
+    'Electric Vehicle': '🚗',
     'Motorcycle': '🏍️',
     'Truck': '🚚',
     'SUV': '🚙',
@@ -86,6 +87,7 @@ function showAddVehicle() {
         <label for="vehType">Vehicle Type *</label>
         <select id="vehType" required>
           <option value="Car">Car</option>
+          <option value="Electric Vehicle">Electric vehicle</option>
           <option value="SUV">SUV</option>
           <option value="Truck">Truck</option>
           <option value="Motorcycle">Motorcycle</option>
